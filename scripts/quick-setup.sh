@@ -66,6 +66,79 @@ update_env_var() {
   fi
 }
 
+prompt_for_required_input() {
+  local prompt_message="$1"
+  local default_value="${2:-}"
+  local input
+
+  while true; do
+    if [ -n "$default_value" ]; then
+      read -rp "$prompt_message [$default_value]: " input
+      input="${input:-$default_value}"
+    else
+      read -rp "$prompt_message: " input
+    fi
+
+    input="$(printf '%s' "$input" | xargs)"
+
+    if [ -n "$input" ]; then
+      printf '%s' "$input"
+      return
+    fi
+
+    warn "A value is required. Please try again."
+  done
+}
+
+prompt_for_required_secret() {
+  local prompt_message="$1"
+  local input
+
+  while true; do
+    read -rsp "$prompt_message: " input
+    echo
+
+    input="$(printf '%s' "$input" | xargs)"
+
+    if [ -n "$input" ]; then
+      printf '%s' "$input"
+      return
+    fi
+
+    warn "A value is required. Please try again."
+  done
+}
+
+prompt_for_secret_with_default() {
+  local prompt_message="$1"
+  local default_value="${2:-}"
+  local input
+
+  while true; do
+    if [ -n "$default_value" ]; then
+      read -rsp "$prompt_message (leave blank to keep current): " input
+      echo
+
+      if [ -z "$input" ]; then
+        printf '%s' "$default_value"
+        return
+      fi
+    else
+      read -rsp "$prompt_message: " input
+      echo
+    fi
+
+    input="$(printf '%s' "$input" | xargs)"
+
+    if [ -n "$input" ]; then
+      printf '%s' "$input"
+      return
+    fi
+
+    warn "A value is required. Please try again."
+  done
+}
+
 get_env_var() {
   local file="$1"
   local key="$2"
@@ -177,21 +250,20 @@ fi
 CONFIG_FILE="$SIGNAGE_DIR/.env"
 
 CURRENT_URL=$(get_env_var "$CONFIG_FILE" "CONTROLLER_BASE_URL")
-if [ -z "$CURRENT_URL" ] || [ "$CURRENT_URL" = "https://displays.example.com" ]; then
-  if [ -n "${CONTROLLER_BASE_URL:-}" ]; then
-    update_env_var "$CONFIG_FILE" "CONTROLLER_BASE_URL" "$CONTROLLER_BASE_URL"
-  else
-    while true; do
-      read -rp "Enter CoreGeek Displays controller URL (e.g., https://displays.example.com): " CONTROLLER_URL
-      if [ -n "$CONTROLLER_URL" ]; then
-        update_env_var "$CONFIG_FILE" "CONTROLLER_BASE_URL" "$CONTROLLER_URL"
-        break
-      fi
-      warn "Controller URL is required. Please enter a valid URL."
-    done
-  fi
+if [ -n "${CONTROLLER_BASE_URL:-}" ]; then
+  update_env_var "$CONFIG_FILE" "CONTROLLER_BASE_URL" "$CONTROLLER_BASE_URL"
+  log "Controller URL configured from environment variable"
 else
-  log "Using existing controller URL: $CURRENT_URL"
+  DEFAULT_URL=""
+  if [ -n "$CURRENT_URL" ] && [ "$CURRENT_URL" != "https://displays.example.com" ]; then
+    DEFAULT_URL="$CURRENT_URL"
+  fi
+
+  CONTROLLER_URL=$(prompt_for_required_input \
+    "Enter CoreGeek Displays controller URL (e.g., https://displays.example.com)" \
+    "$DEFAULT_URL")
+  update_env_var "$CONFIG_FILE" "CONTROLLER_BASE_URL" "$CONTROLLER_URL"
+  log "Controller URL configured"
 fi
 
 if [ -n "${VENUE_SLUG:-}" ]; then
@@ -199,16 +271,20 @@ if [ -n "${VENUE_SLUG:-}" ]; then
 fi
 
 CURRENT_API_KEY=$(get_env_var "$CONFIG_FILE" "CONTROLLER_API_KEY")
-if [ -z "$CURRENT_API_KEY" ]; then
-  if [ -n "${CONTROLLER_API_KEY:-}" ]; then
-    update_env_var "$CONFIG_FILE" "CONTROLLER_API_KEY" "$CONTROLLER_API_KEY"
-    log "Controller API key configured from environment variable"
-  else
-    log "Launching API key configuration CLI..."
-    node "$SIGNAGE_DIR/scripts/configure-api-key.js" --env "$CONFIG_FILE"
-  fi
+if [ -n "${CONTROLLER_API_KEY:-}" ]; then
+  update_env_var "$CONFIG_FILE" "CONTROLLER_API_KEY" "$CONTROLLER_API_KEY"
+  log "Controller API key configured from environment variable"
 else
-  log "Controller API key already configured"
+  if [ -n "$CURRENT_API_KEY" ]; then
+    CONTROLLER_API_KEY=$(prompt_for_secret_with_default \
+      "Enter CoreGeek Displays API key" \
+      "$CURRENT_API_KEY")
+  else
+    CONTROLLER_API_KEY=$(prompt_for_required_secret "Enter CoreGeek Displays API key")
+  fi
+
+  update_env_var "$CONFIG_FILE" "CONTROLLER_API_KEY" "$CONTROLLER_API_KEY"
+  log "Controller API key configured"
 fi
 
 log "Environment configured"
