@@ -33,7 +33,7 @@ fi
 
 SIGNAGE_DIR="/opt/signage"
 REPO_URL="https://github.com/0x0meow/cgd-pi.git"
-REQUIRED_PACKAGES="chromium-browser unclutter curl git xserver-xorg x11-xserver-utils xinit"
+REQUIRED_PACKAGES="chromium-browser unclutter curl git xserver-xorg x11-xserver-utils xinit dnsutils"
 NODE_VERSION="20"
 CURRENT_NODE_VERSION=0
 PI_USER="${PI_USER:-pi}"
@@ -289,6 +289,46 @@ prompt_for_secret_with_default() {
   done
 }
 
+prompt_for_optional_secret() {
+  local prompt_message="$1"
+  local default_value="${2:-}"
+  local input
+
+  while true; do
+    if [ "$INTERACTIVE_AVAILABLE" != true ]; then
+      printf '%s' "$default_value"
+      return
+    fi
+
+    if [ -n "$default_value" ]; then
+      printf "%s (leave blank to keep current): " "$prompt_message" >&$TTY_OUTPUT_FD
+      if ! read -u $TTY_INPUT_FD -rs input; then
+        printf '\n' >&$TTY_OUTPUT_FD
+        warn "Unable to read input. Please try again."
+        continue
+      fi
+      printf '\n' >&$TTY_OUTPUT_FD
+
+      if [ -z "$input" ]; then
+        printf '%s' "$default_value"
+        return
+      fi
+    else
+      printf "%s (press Enter to skip): " "$prompt_message" >&$TTY_OUTPUT_FD
+      if ! read -u $TTY_INPUT_FD -rs input; then
+        printf '\n' >&$TTY_OUTPUT_FD
+        warn "Unable to read input. Please try again."
+        continue
+      fi
+      printf '\n' >&$TTY_OUTPUT_FD
+    fi
+
+    input="$(printf '%s' "$input" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    printf '%s' "$input"
+    return
+  done
+}
+
 get_env_var() {
   local file="$1"
   local key="$2"
@@ -462,15 +502,20 @@ if [ -n "${CONTROLLER_API_KEY:-}" ]; then
   log "Controller API key configured from environment variable"
 else
   if [ -n "$CURRENT_API_KEY" ]; then
-    CONTROLLER_API_KEY=$(prompt_for_secret_with_default \
+    CONTROLLER_API_KEY=$(prompt_for_optional_secret \
       "Enter CoreGeek Displays API key" \
       "$CURRENT_API_KEY")
   else
-    CONTROLLER_API_KEY=$(prompt_for_required_secret "Enter CoreGeek Displays API key")
+    CONTROLLER_API_KEY=$(prompt_for_optional_secret "Enter CoreGeek Displays API key")
   fi
 
   update_env_var "$CONFIG_FILE" "CONTROLLER_API_KEY" "$CONTROLLER_API_KEY"
-  log "Controller API key configured"
+
+  if [ -n "$CONTROLLER_API_KEY" ]; then
+    log "Controller API key configured"
+  else
+    warn "Controller API key left blank. Public endpoints will be used if allowed by the controller."
+  fi
 fi
 
 chown "$PI_USER:$PI_USER" "$CONFIG_FILE"
@@ -575,6 +620,16 @@ if systemctl is-active --quiet graphical.target 2>/dev/null; then
 else
   warn "Graphical target is not active yet. Chromium kiosk will start automatically after the next reboot."
 fi
+
+# ============================================================================
+# Post-Install Verification
+# ============================================================================
+
+log "Running post-install diagnostics..."
+if ! SIGNAGE_DIR="$SIGNAGE_DIR" "$SIGNAGE_DIR/scripts/pi-cli.sh" diagnostics; then
+  error "Post-install diagnostics failed. Review the output above and resolve the issues before rebooting."
+fi
+log "Diagnostics completed successfully"
 
 # ============================================================================
 # Final Instructions

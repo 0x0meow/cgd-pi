@@ -58,6 +58,7 @@ Use this checklist when deploying a new signage player to ensure all steps are c
 - [ ] Images load correctly
 - [ ] No error messages visible
 - [ ] Check health endpoint: `curl http://localhost:3000/healthz`
+- [ ] Run diagnostics: `sudo /opt/signage/scripts/pi-cli.sh diagnostics`
 - [ ] Verify logs: `sudo journalctl -u signage -n 50`
 - [ ] Test offline resilience (disconnect network briefly)
 - [ ] Confirm events auto-refresh after `FETCH_INTERVAL_S`

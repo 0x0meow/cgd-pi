@@ -18,6 +18,7 @@ REQUIRED_PACKAGES=(
   xserver-xorg
   x11-xserver-utils
   xinit
+  dnsutils
 )
 NODE_MAJOR="20"
 SERVICES=(
@@ -284,8 +285,9 @@ run_diagnostics() {
     return 1
   fi
 
-  local diag_output event_count image_url
-  diag_output=$(node - "$tmp_json" "$controller_base" <<'NODE' || true)
+  local diag_output event_count image_url diag_output_file
+  diag_output_file="$(mktemp)"
+  if node - "$tmp_json" "$controller_base" <<'NODE' >"$diag_output_file"
 const fs = require('fs');
 
 const file = process.argv[1];
@@ -319,7 +321,12 @@ if (firstWithImage) {
 console.log(events.length);
 console.log(imageUrl);
 NODE
-  )
+  then
+    diag_output=$(cat "$diag_output_file")
+  else
+    diag_output=''
+  fi
+  rm -f "$diag_output_file"
 
   event_count=$(printf '%s\n' "$diag_output" | sed -n '1p' | tr -d '\r')
   image_url=$(printf '%s\n' "$diag_output" | sed -n '2p' | tr -d '\r')

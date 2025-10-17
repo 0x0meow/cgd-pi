@@ -21,7 +21,7 @@
 
 ### Platform & Automation
 
-- ✅ `scripts/quick-setup.sh` – Non-interactive installer/reinstaller for `/opt/signage`
+- ✅ `scripts/quick-setup.sh` – Non-interactive installer/reinstaller for `/opt/signage` with built-in diagnostics gatekeeping
 - ✅ `scripts/configure-api-key.js` – Node-based CLI for credential management
 - ✅ `scripts/validate.sh` – Hardware, network, and service validation suite
 - ✅ `deployment/signage.service` – systemd unit for native Node.js runtime
@@ -71,6 +71,7 @@
 - `.env.example` documents all runtime variables
 - Quick setup prompts for controller URL if unset and launches API Key CLI
 - `scripts/configure-api-key.js` enables interactive or automated credential updates
+- `server.js` validates controller URL/intervals at startup and exits if misconfigured
 
 ### Section 8.6 – Service Operations
 - `deployment/signage.service` runs Node.js directly under systemd
@@ -87,6 +88,7 @@
 - Validation script checks connectivity, services, and display prerequisites
 - Update workflow documented (git pull + npm install + systemd restart)
 - Quick setup can be re-run for a full reinstall while preserving configuration backups
+- Quick setup concludes with the diagnostics CLI and halts on failure, guaranteeing controller connectivity
 
 ---
 
