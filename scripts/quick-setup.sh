@@ -70,9 +70,85 @@ check_root() {
 ensure_user_exists() {
   local user="$1"
 
-  if ! id "$user" > /dev/null 2>&1; then
-    error "User '$user' not found. Create the user or set PI_USER to an existing account."
+  if id "$user" > /dev/null 2>&1; then
+    return
   fi
+
+  warn "User '$user' not found."
+
+  if [ "$INTERACTIVE_AVAILABLE" = true ]; then
+    local response
+
+    while true; do
+      printf "Create user '%s'? [Y/n]: " "$user" >&$TTY_OUTPUT_FD
+      if ! read -u $TTY_INPUT_FD -r response; then
+        warn "Unable to read input. Defaulting to yes."
+        response=""
+      fi
+
+      response="$(printf '%s' "${response:-}" | xargs | tr '[:upper:]' '[:lower:]')"
+
+      case "${response:-y}" in
+        y|yes)
+          create_kiosk_user "$user"
+          return
+          ;;
+        n|no)
+          local alternate_user
+          alternate_user=$(prompt_for_required_input "Enter existing user to run the signage")
+
+          if id "$alternate_user" > /dev/null 2>&1; then
+            PI_USER="$alternate_user"
+            log "Using existing user: $PI_USER"
+            return
+          fi
+
+          warn "User '$alternate_user' does not exist."
+          ;;
+        *)
+          warn "Please respond with 'y' or 'n'."
+          ;;
+      esac
+    done
+  else
+    warn "Non-interactive environment detected. Creating user '$user' automatically."
+    create_kiosk_user "$user"
+  fi
+}
+
+create_kiosk_user() {
+  local user="$1"
+
+  if id "$user" > /dev/null 2>&1; then
+    return
+  fi
+
+  log "Creating kiosk user '$user'..."
+
+  if command -v useradd > /dev/null 2>&1; then
+    if ! useradd -m -s /bin/bash "$user"; then
+      error "Failed to create user '$user'"
+    fi
+  elif command -v adduser > /dev/null 2>&1; then
+    if ! adduser --disabled-password --gecos "" "$user"; then
+      error "Failed to create user '$user'"
+    fi
+  else
+    error "Neither useradd nor adduser is available to create user '$user'"
+  fi
+
+  usermod -aG video "$user" 2>/dev/null || true
+  usermod -aG input "$user" 2>/dev/null || true
+  usermod -aG tty "$user" 2>/dev/null || true
+
+  local home_dir
+  home_dir=$(get_user_home "$user")
+  if [ -n "$home_dir" ]; then
+    mkdir -p "$home_dir"
+    chown "$user:$user" "$home_dir"
+  fi
+
+  log "User '$user' created successfully"
 }
 
 get_user_home() {
