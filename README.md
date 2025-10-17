@@ -10,7 +10,7 @@
 
 This signage player consists of:
 
-- **Dockerized Node.js service** – Fetches event data from CoreGeek Displays public API, renders HTML/CSS signage, serves on `http://localhost:3000`
+- **Native Node.js service** – Fetches event data from CoreGeek Displays public API, renders HTML/CSS signage, serves on `http://localhost:3000`
 - **Chromium kiosk mode** – Full-screen browser display managed by systemd
 - **Offline resilience** – Caches event data and continues displaying when controller is unreachable
 - **Auto-updates** – Configurable refresh intervals keep content synchronized
@@ -27,14 +27,11 @@ This signage player consists of:
 │  └──────────────┬─────────────────────┘   │
 │                 │                           │
 │  ┌──────────────▼─────────────────────┐   │
-│  │  Docker Container                   │   │
-│  │  ┌───────────────────────────────┐ │   │
-│  │  │ Node.js Express Server        │ │   │
-│  │  │ - Periodic event fetch        │ │   │
-│  │  │ - Media URL hydration         │ │   │
-│  │  │ - Offline caching             │ │   │
-│  │  │ - Nunjucks templating         │ │   │
-│  │  └───────────────────────────────┘ │   │
+│  │  Node.js Express Server            │   │
+│  │  - Periodic event fetch            │   │
+│  │  - Media URL hydration             │   │
+│  │  - Offline caching                 │   │
+│  │  - Nunjucks templating             │   │
 │  └────────────────────────────────────┘   │
 │                 │                           │
 │                 ▼                           │
@@ -73,9 +70,32 @@ Use [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to flash **Rasp
 
 **Reference**: [docs/server-api-events.md Section 8.2](#)
 
-### 2. Initial System Setup
+### 2. Automated Setup (Recommended)
 
-SSH into your Pi and run:
+The easiest way to set up the signage player is using our automated setup script:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/0x0meow/cgd-pi/main/scripts/quick-setup.sh | sudo bash
+```
+
+The script will:
+- Update system packages
+- Install Node.js 20+ and required dependencies
+- Clone this repository to `/opt/signage`
+- Prompt for API key and controller URL
+- Install npm dependencies
+- Configure systemd services
+- Set up Chromium kiosk mode
+
+**After the script completes, reboot your Pi:**
+
+```bash
+sudo reboot
+```
+
+### 3. Manual Setup (Alternative)
+
+If you prefer to set up manually, follow these steps:
 
 ```bash
 # Update system
@@ -87,12 +107,9 @@ sudo raspi-config nonint do_change_timezone America/Chicago
 # Install required packages
 sudo apt install -y git curl chromium-browser unclutter
 
-# Install Docker
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker pi
-
-# Enable Docker at boot
-sudo systemctl enable docker
+# Install Node.js 20
+curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
+sudo apt install -y nodejs
 
 # Reboot to apply changes
 sudo reboot
@@ -100,7 +117,7 @@ sudo reboot
 
 **Reference**: [docs/server-api-events.md Section 8.2, 8.3](#)
 
-### 3. Deploy Signage Player
+### 4. Deploy Signage Player
 
 ```bash
 # Create deployment directory
@@ -108,42 +125,36 @@ sudo mkdir -p /opt/signage
 cd /opt/signage
 
 # Clone this repository
-git clone https://github.com/0x0meow/cgd-pi.git .
-
-# OR download release tarball
-# wget https://github.com/0x0meow/cgd-pi/releases/latest/download/cgd-pi.tar.gz
-# tar xzf cgd-pi.tar.gz
+sudo git clone https://github.com/0x0meow/cgd-pi.git .
 
 # Configure environment (see Configuration section below)
-cp .env.example .env
-nano .env  # Edit with your settings
+sudo cp .env.example .env
+sudo nano .env  # Edit with your settings
 
-# Build Docker image for ARM64
-docker buildx build --platform linux/arm64 -t coregeek-signage:latest .
+# Install Node.js dependencies
+sudo npm install --production
 
-# Start the signage service
-docker compose up -d
-
-# Verify it's running
-docker compose ps
-curl http://localhost:3000/healthz
-```
-
-**Reference**: [docs/server-api-events.md Section 8.4, 8.5, 8.6](#)
-
-### 4. Install Systemd Services
-
-```bash
-# Install Docker stack service
+# Install systemd services
 sudo cp deployment/signage.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable signage.service
 sudo systemctl start signage.service
 
+# Verify it's running
+sudo systemctl status signage
+curl http://localhost:3000/healthz
+```
+
+**Reference**: [docs/server-api-events.md Section 8.4, 8.5, 8.6](#)
+
+### 5. Install Chromium Kiosk
+
+```bash
 # Install Chromium kiosk service
 sudo cp deployment/chromium-kiosk.service /etc/systemd/system/
 sudo cp deployment/start-kiosk.sh /home/pi/
 sudo chmod +x /home/pi/start-kiosk.sh
+sudo chown pi:pi /home/pi/start-kiosk.sh
 sudo systemctl enable chromium-kiosk.service
 
 # Enable auto-login (required for kiosk mode)
@@ -204,10 +215,9 @@ NODE_ENV=production
 ### Service Status
 
 ```bash
-# Check Docker stack
+# Check signage service
 sudo systemctl status signage
-docker compose -f /opt/signage/docker-compose.yml ps
-docker compose -f /opt/signage/docker-compose.yml logs -f
+sudo journalctl -u signage -f
 
 # Check Chromium kiosk
 sudo systemctl status chromium-kiosk
@@ -220,8 +230,8 @@ curl http://localhost:3000/healthz
 ### Restart Services
 
 ```bash
-# Restart Docker container (refresh data)
-docker compose -f /opt/signage/docker-compose.yml restart
+# Restart signage service (refresh data)
+sudo systemctl restart signage
 
 # Restart Chromium (refresh display)
 sudo systemctl restart chromium-kiosk
@@ -233,12 +243,14 @@ sudo reboot
 ### View Logs
 
 ```bash
-# Container logs
-docker compose -f /opt/signage/docker-compose.yml logs -f signage
-
-# System logs
+# Signage service logs
 sudo journalctl -u signage -f
+
+# Chromium kiosk logs
 sudo journalctl -u chromium-kiosk -f
+
+# All system logs
+sudo journalctl -xe
 ```
 
 ### Update Signage Software
@@ -247,14 +259,13 @@ sudo journalctl -u chromium-kiosk -f
 cd /opt/signage
 
 # Pull latest code
-git pull
+sudo git pull
 
-# Rebuild image
-docker buildx build --platform linux/arm64 -t coregeek-signage:latest .
+# Install/update dependencies
+sudo npm install --production
 
-# Restart services
-docker compose down
-docker compose up -d
+# Restart service
+sudo systemctl restart signage
 sudo systemctl restart chromium-kiosk
 ```
 
@@ -273,11 +284,11 @@ Edit `/opt/signage/public/signage.css` to customize:
 - Layout and spacing
 - Animation timing
 
-Rebuild and restart after changes:
+Restart after changes:
 
 ```bash
-docker buildx build --platform linux/arm64 -t coregeek-signage:latest .
-docker compose restart
+sudo systemctl restart signage
+sudo systemctl restart chromium-kiosk
 ```
 
 ### Template Modifications
@@ -319,42 +330,43 @@ sudo systemctl restart chromium-kiosk
 ### "Events Temporarily Unavailable"
 
 ```bash
-# Check container health
-docker compose ps
-docker compose logs signage
+# Check service health
+sudo systemctl status signage
+sudo journalctl -u signage -n 50
 
 # Test controller connectivity
 curl https://displays.example.com/api/public/events
 
 # Check environment variables
-docker compose config
+cat /opt/signage/.env
 ```
 
 ### Events Not Updating
 
 ```bash
 # Check fetch logs
-docker compose logs signage | grep -i fetch
+sudo journalctl -u signage | grep -i fetch
 
 # Verify FETCH_INTERVAL_S setting
-docker compose exec signage printenv FETCH_INTERVAL_S
+cat /opt/signage/.env | grep FETCH_INTERVAL_S
 
 # Force refresh
-docker compose restart signage
+sudo systemctl restart signage
 ```
 
-### Container Won't Start
+### Service Won't Start
 
 ```bash
-# Check Docker daemon
-sudo systemctl status docker
+# Check service status
+sudo systemctl status signage
 
-# View container logs
-docker compose logs signage
+# View service logs
+sudo journalctl -u signage -n 100
 
-# Rebuild image
-docker buildx build --platform linux/arm64 -t coregeek-signage:latest .
-docker compose up -d
+# Reinstall dependencies
+cd /opt/signage
+sudo npm install --production
+sudo systemctl restart signage
 ```
 
 **Reference**: [docs/server-api-events.md Section 8.8](#)
@@ -380,17 +392,17 @@ docker compose up -d
 
 ### Monitoring
 
-- Enable Docker health checks (already configured)
+- Monitor service health: `sudo systemctl status signage chromium-kiosk`
 - Set up remote logging (syslog, Loki, etc.)
 - Monitor disk space: `df -h`
 - Track temperature: `vcgencmd measure_temp`
 
 ### Updates
 
-- Pin Docker image tags for production stability
 - Test updates on staging Pi before deploying to production
-- Use `docker pull` + `docker compose up -d` for zero-downtime updates
+- Use `git pull` + `npm install` + `systemctl restart` for updates
 - Keep CoreGeek Displays controller updated for latest API features
+- Regularly update system packages: `sudo apt update && sudo apt upgrade`
 
 **Reference**: [docs/server-api-events.md Section 8.8](#)
 
@@ -469,24 +481,18 @@ export FETCH_INTERVAL_S=10
 # Access at http://localhost:3000
 ```
 
-### Build for ARM64
-
-```bash
-# Build and push to registry
-npm run build:push -- --config org=yourorg
-
-# Or build locally
-npm run build:arm64
-```
-
 ### Testing Template Changes
 
 ```bash
 # Edit views/events.njk or public/signage.css
-# Changes reflect on container rebuild
+# Changes reflect immediately - just restart service
 
-docker buildx build --platform linux/arm64 -t coregeek-signage:latest .
-docker compose restart
+sudo nano /opt/signage/views/events.njk
+# or
+sudo nano /opt/signage/public/signage.css
+
+sudo systemctl restart signage
+sudo systemctl restart chromium-kiosk
 ```
 
 ---

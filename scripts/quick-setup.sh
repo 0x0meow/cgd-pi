@@ -19,7 +19,7 @@ set -euo pipefail
 SIGNAGE_DIR="/opt/signage"
 REPO_URL="https://github.com/0x0meow/cgd-pi.git"
 REQUIRED_PACKAGES="chromium-browser unclutter curl git"
-DOCKER_IMAGE="coregeek-signage:latest"
+NODE_VERSION="20"
 
 # Colors for output
 RED='\033[0;31m'
@@ -104,26 +104,25 @@ log "Installing required packages: $REQUIRED_PACKAGES"
 apt install -y $REQUIRED_PACKAGES
 
 # ============================================================================
-# Install Docker
+# Install Node.js
 # ============================================================================
 
-if command -v docker &> /dev/null; then
-  log "Docker already installed: $(docker --version)"
-else
-  log "Installing Docker..."
-  curl -fsSL https://get.docker.com | sh
-  
-  # Add pi user to docker group
-  if id "pi" &>/dev/null; then
-    usermod -aG docker pi
-    log "Added 'pi' user to docker group"
+if command -v node &> /dev/null; then
+  CURRENT_NODE_VERSION=$(node -v | cut -d'v' -f2 | cut -d'.' -f1)
+  if [ "$CURRENT_NODE_VERSION" -ge "$NODE_VERSION" ]; then
+    log "Node.js already installed: $(node -v)"
+  else
+    warn "Node.js version too old ($(node -v)). Installing Node.js $NODE_VERSION..."
+    apt remove -y nodejs npm 2>/dev/null || true
   fi
-  
-  # Enable Docker at boot
-  systemctl enable docker
-  systemctl start docker
-  
-  log "Docker installed successfully"
+fi
+
+if ! command -v node &> /dev/null || [ "$CURRENT_NODE_VERSION" -lt "$NODE_VERSION" ]; then
+  log "Installing Node.js $NODE_VERSION..."
+  curl -fsSL https://deb.nodesource.com/setup_${NODE_VERSION}.x | bash -
+  apt install -y nodejs
+  log "Node.js installed: $(node -v)"
+  log "npm installed: $(npm -v)"
 fi
 
 # ============================================================================
@@ -186,23 +185,14 @@ else
 fi
 
 # ============================================================================
-# Build Docker Image
+# Install Node.js Dependencies
 # ============================================================================
 
-log "Preparing Docker image ($DOCKER_IMAGE)..."
+log "Installing Node.js dependencies..."
 cd "$SIGNAGE_DIR"
+npm install --production
 
-if docker image inspect "$DOCKER_IMAGE" > /dev/null 2>&1; then
-  warn "Docker image $DOCKER_IMAGE already exists locally - skipping rebuild (remove it to force a rebuild)"
-else
-  if docker buildx version > /dev/null 2>&1; then
-    docker buildx build --platform linux/arm64 -t "$DOCKER_IMAGE" --load .
-  else
-    warn "docker buildx not available; falling back to docker build"
-    docker build -t "$DOCKER_IMAGE" .
-  fi
-  log "Docker image $DOCKER_IMAGE built successfully"
-fi
+log "Node.js dependencies installed"
 
 # ============================================================================
 # Install Systemd Services
@@ -240,9 +230,9 @@ raspi-config nonint do_boot_behaviour B4
 log "Starting signage service..."
 systemctl start signage.service
 
-# Wait for container to be healthy
+# Wait for service to be healthy
 log "Waiting for signage service to be ready..."
-sleep 10
+sleep 5
 
 for i in {1..30}; do
   if curl -sf http://localhost:3000/healthz > /dev/null 2>&1; then
@@ -251,7 +241,7 @@ for i in {1..30}; do
   fi
   
   if [ $i -eq 30 ]; then
-    error "Signage service failed to become healthy. Check logs: docker compose -f $SIGNAGE_DIR/docker-compose.yml logs"
+    error "Signage service failed to become healthy. Check logs: sudo journalctl -u signage -f"
   fi
   
   sleep 2
@@ -274,7 +264,7 @@ echo "After reboot, the display will automatically show signage."
 echo
 echo "Useful commands:"
 echo "  - Check status: sudo systemctl status signage chromium-kiosk"
-echo "  - View logs: docker compose -f $SIGNAGE_DIR/docker-compose.yml logs -f"
+echo "  - View logs: sudo journalctl -u signage -f"
 echo "  - Restart display: sudo systemctl restart chromium-kiosk"
 echo
 echo "For troubleshooting, see: $SIGNAGE_DIR/TROUBLESHOOTING.md"

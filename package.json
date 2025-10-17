@@ -1,14 +1,12 @@
 {
   "name": "coregeek-signage-player",
   "version": "1.0.0",
-  "description": "CoreGeek Displays Raspberry Pi Kiosk Integration - Dockerized signage player for public event feeds",
+  "description": "CoreGeek Displays Raspberry Pi Kiosk Integration - Native signage player for public event feeds",
   "type": "module",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node --watch server.js",
-    "build:arm64": "docker buildx build --platform linux/arm64 -t coregeek-signage:latest .",
-    "build:push": "docker buildx build --platform linux/arm64 -t ghcr.io/$npm_config_org/coregeek-signage:latest --push ."
+    "dev": "node --watch server.js"
   },
   "keywords": [
     "digital-signage",

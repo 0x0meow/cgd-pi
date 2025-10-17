@@ -56,7 +56,7 @@ until curl -sf "${SIGNAGE_URL}/healthz" > /dev/null 2>&1; do
   
   if [ $RETRY_COUNT -ge $MAX_RETRIES ]; then
     echo "  ✗ ERROR: Signage service not available after ${MAX_RETRIES} attempts"
-    echo "  → Please check Docker container status: docker compose -f /opt/signage/docker-compose.yml ps"
+    echo "  → Please check service status: sudo systemctl status signage"
     exit 1
   fi
   

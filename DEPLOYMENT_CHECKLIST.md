@@ -21,34 +21,32 @@ Use this checklist when deploying a new signage player to ensure all steps are c
 
 ## Software Installation (Section 8.3)
 
-- [ ] Docker installed: `curl -fsSL https://get.docker.com | sh`
-- [ ] User added to docker group: `sudo usermod -aG docker pi`
-- [ ] Docker enabled at boot: `sudo systemctl enable docker`
+- [ ] Node.js 20+ installed: `curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash - && sudo apt install -y nodejs`
 - [ ] Chromium browser installed: `sudo apt install -y chromium-browser unclutter`
-- [ ] System rebooted to apply group membership
+- [ ] System rebooted
 
 ## Application Deployment (Section 8.4-8.6)
 
 - [ ] Deployment directory created: `sudo mkdir -p /opt/signage`
-- [ ] Repository cloned or release downloaded to `/opt/signage`
-- [ ] `.env` file created from `.env.example`
+- [ ] Repository cloned to `/opt/signage`: `sudo git clone https://github.com/0x0meow/cgd-pi.git /opt/signage`
+- [ ] `.env` file created from `.env.example`: `sudo cp /opt/signage/.env.example /opt/signage/.env`
 - [ ] Environment variables configured:
   - [ ] `CONTROLLER_BASE_URL` set
   - [ ] `VENUE_SLUG` set (or left empty for all events)
   - [ ] `FETCH_INTERVAL_S` configured
   - [ ] Other settings reviewed
-- [ ] Docker image built: `docker buildx build --platform linux/arm64 -t coregeek-signage:latest .`
-- [ ] Docker compose started: `docker compose up -d`
-- [ ] Container health verified: `docker compose ps` and `curl http://localhost:3000/healthz`
+- [ ] Dependencies installed: `cd /opt/signage && sudo npm install --production`
+- [ ] Service health verified: `curl http://localhost:3000/healthz`
 
 ## Systemd Services (Section 8.6-8.7)
 
-- [ ] Signage service installed: `sudo cp deployment/signage.service /etc/systemd/system/`
+- [ ] Signage service installed: `sudo cp /opt/signage/deployment/signage.service /etc/systemd/system/`
 - [ ] Signage service enabled: `sudo systemctl enable signage.service`
 - [ ] Signage service started: `sudo systemctl start signage.service`
-- [ ] Kiosk script installed: `sudo cp deployment/start-kiosk.sh /home/pi/`
+- [ ] Kiosk script installed: `sudo cp /opt/signage/deployment/start-kiosk.sh /home/pi/`
 - [ ] Kiosk script made executable: `sudo chmod +x /home/pi/start-kiosk.sh`
-- [ ] Kiosk service installed: `sudo cp deployment/chromium-kiosk.service /etc/systemd/system/`
+- [ ] Kiosk script ownership set: `sudo chown pi:pi /home/pi/start-kiosk.sh`
+- [ ] Kiosk service installed: `sudo cp /opt/signage/deployment/chromium-kiosk.service /etc/systemd/system/`
 - [ ] Kiosk service enabled: `sudo systemctl enable chromium-kiosk.service`
 - [ ] Auto-login configured: `sudo raspi-config nonint do_boot_behaviour B4`
 - [ ] Final reboot: `sudo reboot`
@@ -60,7 +58,7 @@ Use this checklist when deploying a new signage player to ensure all steps are c
 - [ ] Images load correctly
 - [ ] No error messages visible
 - [ ] Check health endpoint: `curl http://localhost:3000/healthz`
-- [ ] Verify logs: `docker compose -f /opt/signage/docker-compose.yml logs`
+- [ ] Verify logs: `sudo journalctl -u signage -n 50`
 - [ ] Test offline resilience (disconnect network briefly)
 - [ ] Confirm events auto-refresh after `FETCH_INTERVAL_S`
 
