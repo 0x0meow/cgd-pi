@@ -1,0 +1,289 @@
+{# 
+  CoreGeek Displays Signage Template
+  Renders public events for digital signage displays
+  References: Section 5 (Event Data Model), Section 5.3 (Rendering Helpers)
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% if venue %}{{ venue.name }} Events{% else %}CoreGeek Events{% endif %}</title>
+  <link rel="stylesheet" href="/static/signage.css">
+  <style>
+    /* Auto-refresh to stay current with controller changes */
+    /* Refresh interval matches server fetch cycle to minimize stale data */
+  </style>
+</head>
+<body class="signage-display {% if isOffline %}offline-mode{% endif %}">
+  
+  {# Header with venue branding #}
+  <header class="signage-header">
+    <div class="header-content">
+      <h1 class="venue-name">
+        {% if venue and venue.name %}
+          {{ venue.name }}
+        {% else %}
+          Upcoming Events
+        {% endif %}
+      </h1>
+      
+      {% if venue and venue.address %}
+        <p class="venue-address">{{ venue.address }}</p>
+      {% endif %}
+      
+      {# Offline indicator (Section 8.8) #}
+      {% if isOffline %}
+        <div class="offline-banner">
+          <span class="offline-icon">⚠</span>
+          <span>Displaying cached events (controller offline)</span>
+        </div>
+      {% endif %}
+    </div>
+  </header>
+
+  {# Main events grid #}
+  <main class="signage-content">
+    {% if events.length > 0 %}
+      <div class="events-grid">
+        {% for event in events %}
+          <article class="event-card" data-event-id="{{ event.id }}">
+            
+            {# Event image with fallback #}
+            {% if event.imageUrl %}
+              <div class="event-image" style="background-image: url('{{ event.imageUrl }}')">
+                <div class="event-image-overlay"></div>
+              </div>
+            {% else %}
+              <div class="event-image event-image-placeholder">
+                <div class="placeholder-icon">📅</div>
+              </div>
+            {% endif %}
+
+            {# Event details #}
+            <div class="event-details">
+              <h2 class="event-title">{{ event.title }}</h2>
+              
+              {# Date and time (Section 5.3 - ISO timestamp conversion) #}
+              <div class="event-datetime">
+                <time class="event-date" datetime="{{ event.startDatetime }}">
+                  <span class="date-day"></span>
+                  <span class="date-month"></span>
+                  <span class="date-year"></span>
+                </time>
+                <time class="event-time" datetime="{{ event.startDatetime }}">
+                  <span class="time-start"></span>
+                  {% if event.endDatetime %}
+                    <span class="time-separator">–</span>
+                    <span class="time-end" data-end="{{ event.endDatetime }}"></span>
+                  {% endif %}
+                </time>
+              </div>
+
+              {# Event description #}
+              {% if event.description %}
+                <p class="event-description">{{ event.description | truncate(200) }}</p>
+              {% endif %}
+
+              {# Location info #}
+              {% if event.barLocation or event.address %}
+                <div class="event-location">
+                  <span class="location-icon">📍</span>
+                  <span class="location-text">
+                    {% if event.barLocation %}{{ event.barLocation }}{% endif %}
+                    {% if event.address and event.address != event.barLocation %}
+                      {% if event.barLocation %} • {% endif %}{{ event.address }}
+                    {% endif %}
+                  </span>
+                </div>
+              {% endif %}
+
+              {# Call-to-action buttons (Section 2 - button fields) #}
+              <div class="event-actions">
+                {% if event.button1Enabled and event.button1Label %}
+                  <a href="{{ event.button1Url }}" class="event-button event-button-primary" target="_blank" rel="noopener">
+                    {{ event.button1Label }}
+                  </a>
+                {% endif %}
+                
+                {% if event.button2Enabled and event.button2Label %}
+                  <a href="{{ event.button2Url }}" class="event-button event-button-secondary" target="_blank" rel="noopener">
+                    {{ event.button2Label }}
+                  </a>
+                {% endif %}
+                
+                {% if event.directionsEnabled and event.address %}
+                  <a href="https://www.google.com/maps/search/?api=1&query={{ event.address | urlencode }}" 
+                     class="event-button event-button-directions" target="_blank" rel="noopener">
+                    Get Directions
+                  </a>
+                {% endif %}
+              </div>
+
+              {# Recurring event indicator #}
+              {% if event.isRecurring %}
+                <div class="event-badge recurring-badge">
+                  <span class="badge-icon">🔄</span>
+                  <span>Recurring Event</span>
+                </div>
+              {% endif %}
+            </div>
+
+          </article>
+        {% endfor %}
+      </div>
+    {% else %}
+      {# No events state #}
+      <div class="no-events">
+        <div class="no-events-icon">📅</div>
+        <h2>No Upcoming Events</h2>
+        <p>Check back soon for new events!</p>
+        {% if lastSuccessfulFetch %}
+          <p class="last-update">Last updated: <time datetime="{{ lastSuccessfulFetch }}"></time></p>
+        {% endif %}
+      </div>
+    {% endif %}
+  </main>
+
+  {# Footer with metadata #}
+  <footer class="signage-footer">
+    <div class="footer-content">
+      {% if lastSuccessfulFetch %}
+        <span class="last-sync">
+          Last updated: <time class="relative-time" datetime="{{ lastSuccessfulFetch }}"></time>
+        </span>
+      {% endif %}
+      <span class="powered-by">Powered by CoreGeek Displays</span>
+    </div>
+  </footer>
+
+  {# Client-side JavaScript for time formatting and auto-refresh #}
+  <script>
+    (function() {
+      'use strict';
+
+      // Configuration from server (Section 8.5)
+      const config = {{ config | dump | safe }};
+      const displayRotationMs = (config.displayRotationS || 10) * 1000;
+
+      /**
+       * Format ISO timestamps to human-readable date/time
+       * Reference: Section 5.3 (Rendering Helpers)
+       */
+      function formatDateTime() {
+        document.querySelectorAll('.event-card').forEach(card => {
+          const dateEl = card.querySelector('.event-date');
+          const timeEl = card.querySelector('.event-time');
+          
+          if (dateEl) {
+            const datetime = dateEl.getAttribute('datetime');
+            if (datetime) {
+              const date = new Date(datetime);
+              
+              // Format date components
+              const dayEl = dateEl.querySelector('.date-day');
+              const monthEl = dateEl.querySelector('.date-month');
+              const yearEl = dateEl.querySelector('.date-year');
+              
+              if (dayEl) dayEl.textContent = date.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+              if (monthEl) monthEl.textContent = date.toLocaleDateString('en-US', { month: 'short' });
+              if (yearEl) yearEl.textContent = date.toLocaleDateString('en-US', { year: 'numeric' });
+            }
+          }
+          
+          if (timeEl) {
+            const datetime = timeEl.getAttribute('datetime');
+            if (datetime) {
+              const startTime = new Date(datetime);
+              const startEl = timeEl.querySelector('.time-start');
+              if (startEl) {
+                startEl.textContent = startTime.toLocaleTimeString('en-US', { 
+                  hour: 'numeric', 
+                  minute: '2-digit',
+                  hour12: true 
+                });
+              }
+              
+              // Format end time if present
+              const endEl = timeEl.querySelector('.time-end');
+              if (endEl) {
+                const endDatetime = endEl.getAttribute('data-end');
+                if (endDatetime) {
+                  const endTime = new Date(endDatetime);
+                  endEl.textContent = endTime.toLocaleTimeString('en-US', { 
+                    hour: 'numeric', 
+                    minute: '2-digit',
+                    hour12: true 
+                  });
+                }
+              }
+            }
+          }
+        });
+
+        // Format relative timestamps in footer
+        document.querySelectorAll('time.relative-time').forEach(el => {
+          const datetime = el.getAttribute('datetime');
+          if (datetime) {
+            const date = new Date(datetime);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffMins = Math.floor(diffMs / 60000);
+            
+            if (diffMins < 1) {
+              el.textContent = 'just now';
+            } else if (diffMins < 60) {
+              el.textContent = diffMins + ' min' + (diffMins !== 1 ? 's' : '') + ' ago';
+            } else {
+              const diffHours = Math.floor(diffMins / 60);
+              el.textContent = diffHours + ' hour' + (diffHours !== 1 ? 's' : '') + ' ago';
+            }
+          }
+        });
+      }
+
+      /**
+       * Auto-rotate through events (carousel effect)
+       */
+      function initCarousel() {
+        const cards = document.querySelectorAll('.event-card');
+        if (cards.length <= 3) return; // No rotation needed for small sets
+        
+        let currentIndex = 0;
+        
+        setInterval(() => {
+          cards.forEach((card, idx) => {
+            card.classList.toggle('hidden', idx < currentIndex || idx >= currentIndex + 3);
+          });
+          
+          currentIndex = (currentIndex + 1) % cards.length;
+        }, displayRotationMs);
+      }
+
+      /**
+       * Reload page periodically to fetch new data
+       * Respects server fetch interval to stay synchronized
+       */
+      function scheduleRefresh() {
+        // Reload slightly after server fetch cycle to ensure new data is available
+        const refreshMs = ((config.displayRotationS || 10) * 1000) + 5000;
+        setTimeout(() => {
+          console.log('Reloading to fetch latest events...');
+          window.location.reload();
+        }, refreshMs);
+      }
+
+      // Initialize on page load
+      document.addEventListener('DOMContentLoaded', () => {
+        formatDateTime();
+        initCarousel();
+        scheduleRefresh();
+        
+        // Update relative timestamps every minute
+        setInterval(formatDateTime, 60000);
+      });
+    })();
+  </script>
+
+</body>
+</html>

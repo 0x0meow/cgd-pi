@@ -1,0 +1,50 @@
+# Chromium Kiosk Mode - systemd Service
+# Reference: docs/server-api-events.md section 8.7
+#
+# Installation:
+#   sudo cp deployment/chromium-kiosk.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable chromium-kiosk.service
+#
+# Prerequisites:
+#   - Raspberry Pi OS with graphical desktop
+#   - Auto-login enabled for pi user (via raspi-config)
+#   - Chromium browser and unclutter installed
+#   - Signage service running on localhost:3000
+#
+# Management:
+#   sudo systemctl status chromium-kiosk
+#   sudo systemctl restart chromium-kiosk
+#   sudo journalctl -u chromium-kiosk -f
+
+[Unit]
+Description=Chromium Kiosk Mode for CoreGeek Signage
+Documentation=https://github.com/coregeek/displays
+After=graphical.target signage.service
+Wants=graphical.target signage.service
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+
+# X11 display configuration
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/pi/.Xauthority
+
+# Start the kiosk script
+ExecStart=/home/pi/start-kiosk.sh
+
+# Restart on failure (e.g., Chromium crash)
+Restart=on-failure
+RestartSec=5s
+
+# Kill entire process group on stop
+KillMode=process
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=graphical.target

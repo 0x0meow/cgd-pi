@@ -1,0 +1,534 @@
+/**
+ * CoreGeek Displays Signage Stylesheet
+ * Optimized for digital signage on TV/monitor displays (1920x1080, 4K)
+ * Design principles: High contrast, large text, minimal scrolling
+ */
+
+/* ============================================================================
+   CSS Reset & Base Styles
+   ============================================================================ */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Color palette - adjust for venue branding */
+  --color-primary: #2563eb;
+  --color-primary-dark: #1e40af;
+  --color-secondary: #10b981;
+  --color-accent: #f59e0b;
+  --color-danger: #ef4444;
+  
+  --color-bg: #0f172a;
+  --color-bg-card: #1e293b;
+  --color-bg-overlay: rgba(15, 23, 42, 0.85);
+  
+  --color-text: #f1f5f9;
+  --color-text-muted: #cbd5e1;
+  --color-text-dim: #94a3b8;
+  
+  /* Typography - large sizes for readability from distance */
+  --font-size-xl: 3.5rem;
+  --font-size-lg: 2.5rem;
+  --font-size-md: 1.75rem;
+  --font-size-sm: 1.25rem;
+  --font-size-xs: 1rem;
+  
+  /* Spacing */
+  --spacing-xs: 0.5rem;
+  --spacing-sm: 1rem;
+  --spacing-md: 1.5rem;
+  --spacing-lg: 2rem;
+  --spacing-xl: 3rem;
+  
+  /* Layout */
+  --header-height: 120px;
+  --footer-height: 60px;
+  --card-radius: 16px;
+  --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+html, body {
+  height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow: hidden; /* Prevent scrolling in kiosk mode */
+}
+
+body {
+  background: linear-gradient(135deg, var(--color-bg) 0%, #1e293b 100%);
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================================
+   Header
+   ============================================================================ */
+
+.signage-header {
+  height: var(--header-height);
+  background: linear-gradient(to bottom, rgba(30, 41, 59, 0.95), rgba(30, 41, 59, 0.8));
+  backdrop-filter: blur(10px);
+  border-bottom: 2px solid rgba(37, 99, 235, 0.3);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--spacing-xl);
+  position: relative;
+  z-index: 10;
+}
+
+.header-content {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.venue-name {
+  font-size: var(--font-size-lg);
+  font-weight: 700;
+  color: var(--color-text);
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  margin: 0;
+}
+
+.venue-address {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin: var(--spacing-xs) 0 0 0;
+}
+
+/* Offline mode banner */
+.offline-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  background: var(--color-danger);
+  color: white;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: 8px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.offline-icon {
+  font-size: var(--font-size-md);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* ============================================================================
+   Main Content
+   ============================================================================ */
+
+.signage-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spacing-xl);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+/* Events Grid */
+.events-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+  gap: var(--spacing-lg);
+  width: 100%;
+  max-width: 2000px;
+  margin: 0 auto;
+}
+
+/* Single event card per row on smaller displays */
+@media (max-width: 1200px) {
+  .events-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Event Card */
+.event-card {
+  background: var(--color-bg-card);
+  border-radius: var(--card-radius);
+  overflow: hidden;
+  box-shadow: var(--card-shadow);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.event-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px rgba(37, 99, 235, 0.3);
+}
+
+.event-card.hidden {
+  display: none;
+}
+
+/* Event Image */
+.event-image {
+  position: relative;
+  width: 100%;
+  height: 300px;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+.event-image-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 0%, rgba(15, 23, 42, 0.8) 100%);
+}
+
+.event-image-placeholder {
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.placeholder-icon {
+  font-size: 6rem;
+  opacity: 0.3;
+}
+
+/* Event Details */
+.event-details {
+  padding: var(--spacing-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  flex: 1;
+}
+
+.event-title {
+  font-size: var(--font-size-md);
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.2;
+  margin: 0;
+}
+
+/* Date and Time */
+.event-datetime {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  padding: var(--spacing-sm) 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.event-date {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-weight: 600;
+  color: var(--color-primary);
+}
+
+.event-time {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.time-separator {
+  margin: 0 var(--spacing-xs);
+}
+
+/* Description */
+.event-description {
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Location */
+.event-location {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+
+.location-icon {
+  font-size: var(--font-size-md);
+}
+
+/* Action Buttons */
+.event-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  margin-top: auto;
+}
+
+.event-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-sm) var(--spacing-md);
+  border-radius: 8px;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.event-button-primary {
+  background: var(--color-primary);
+  color: white;
+  border: 2px solid var(--color-primary);
+}
+
+.event-button-primary:hover {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  transform: translateY(-2px);
+}
+
+.event-button-secondary {
+  background: transparent;
+  color: var(--color-primary);
+  border: 2px solid var(--color-primary);
+}
+
+.event-button-secondary:hover {
+  background: var(--color-primary);
+  color: white;
+  transform: translateY(-2px);
+}
+
+.event-button-directions {
+  background: var(--color-secondary);
+  color: white;
+  border: 2px solid var(--color-secondary);
+}
+
+.event-button-directions:hover {
+  background: #059669;
+  border-color: #059669;
+  transform: translateY(-2px);
+}
+
+/* Event Badges */
+.event-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  border-radius: 6px;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  margin-top: var(--spacing-sm);
+}
+
+.recurring-badge {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--color-accent);
+  border: 1px solid var(--color-accent);
+}
+
+/* ============================================================================
+   No Events State
+   ============================================================================ */
+
+.no-events {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--spacing-xl);
+  min-height: 400px;
+}
+
+.no-events-icon {
+  font-size: 8rem;
+  opacity: 0.3;
+  margin-bottom: var(--spacing-lg);
+}
+
+.no-events h2 {
+  font-size: var(--font-size-lg);
+  color: var(--color-text);
+  margin-bottom: var(--spacing-sm);
+}
+
+.no-events p {
+  font-size: var(--font-size-md);
+  color: var(--color-text-muted);
+}
+
+.last-update {
+  margin-top: var(--spacing-md);
+  font-size: var(--font-size-sm);
+  color: var(--color-text-dim);
+}
+
+/* ============================================================================
+   Footer
+   ============================================================================ */
+
+.signage-footer {
+  height: var(--footer-height);
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  padding: 0 var(--spacing-xl);
+}
+
+.footer-content {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-dim);
+}
+
+.last-sync {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+}
+
+.powered-by {
+  font-weight: 500;
+}
+
+/* ============================================================================
+   Offline Mode Adjustments
+   ============================================================================ */
+
+.offline-mode .signage-content {
+  filter: grayscale(20%);
+}
+
+.offline-mode .event-card {
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+/* ============================================================================
+   Responsive Adjustments for Different Display Sizes
+   ============================================================================ */
+
+/* 4K Displays (3840x2160) */
+@media (min-width: 2560px) {
+  :root {
+    --font-size-xl: 5rem;
+    --font-size-lg: 3.5rem;
+    --font-size-md: 2.5rem;
+    --font-size-sm: 1.75rem;
+    --font-size-xs: 1.25rem;
+  }
+  
+  .events-grid {
+    grid-template-columns: repeat(auto-fit, minmax(700px, 1fr));
+  }
+  
+  .event-image {
+    height: 400px;
+  }
+}
+
+/* HD Displays (1920x1080) - Default sizing above */
+
+/* Tablet/Smaller Displays */
+@media (max-width: 1024px) {
+  :root {
+    --font-size-xl: 2.5rem;
+    --font-size-lg: 2rem;
+    --font-size-md: 1.5rem;
+    --font-size-sm: 1.125rem;
+    --font-size-xs: 0.875rem;
+  }
+  
+  .events-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Portrait Orientation */
+@media (orientation: portrait) {
+  .events-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .event-image {
+    height: 250px;
+  }
+}
+
+/* ============================================================================
+   Animations
+   ============================================================================ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.event-card {
+  animation: fadeIn 0.5s ease-out forwards;
+}
+
+.event-card:nth-child(1) { animation-delay: 0.1s; }
+.event-card:nth-child(2) { animation-delay: 0.2s; }
+.event-card:nth-child(3) { animation-delay: 0.3s; }
+.event-card:nth-child(4) { animation-delay: 0.4s; }
+.event-card:nth-child(5) { animation-delay: 0.5s; }
+.event-card:nth-child(6) { animation-delay: 0.6s; }
+
+/* ============================================================================
+   Print Styles (for testing)
+   ============================================================================ */
+
+@media print {
+  body {
+    background: white;
+    color: black;
+  }
+  
+  .signage-header,
+  .signage-footer,
+  .event-button,
+  .offline-banner {
+    display: none;
+  }
+  
+  .event-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

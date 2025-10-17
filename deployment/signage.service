@@ -1,0 +1,47 @@
+# CoreGeek Signage Docker Stack - systemd Service
+# Reference: docs/server-api-events.md section 8.6
+#
+# Installation:
+#   sudo cp deployment/signage.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable signage.service
+#   sudo systemctl start signage.service
+#
+# Management:
+#   sudo systemctl status signage
+#   sudo systemctl restart signage
+#   sudo journalctl -u signage -f
+
+[Unit]
+Description=CoreGeek Signage Docker Stack
+Documentation=https://github.com/coregeek/displays
+After=network-online.target docker.service
+Requires=docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/signage
+
+# Pull latest image and start containers
+ExecStartPre=/usr/bin/docker compose pull --quiet
+ExecStart=/usr/bin/docker compose up -d --remove-orphans
+
+# Graceful shutdown
+ExecStop=/usr/bin/docker compose down
+
+# Restart policy
+Restart=on-failure
+RestartSec=10s
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
