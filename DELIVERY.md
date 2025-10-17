@@ -3,7 +3,7 @@
 ## Project Completion Report
 
 **Project**: Raspberry Pi Kiosk Integration for CoreGeek Displays  
-**Specification**: docs/server-api-events.md Section 8  
+**Specification**: CoreGeek Displays Server API Integration Guide – Section 8
 **Delivery Date**: October 17, 2025  
 **Status**: ✅ **COMPLETE & PRODUCTION-READY**
 

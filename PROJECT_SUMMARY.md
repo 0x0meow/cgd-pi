@@ -2,7 +2,7 @@
 
 ## Overview
 
-This repository delivers the native Raspberry Pi signage player for CoreGeek Displays (docs/server-api-events.md, Section 8). The solution removes Docker dependencies in favour of a streamlined Node.js service managed directly by systemd and configured through a single installer script.
+This repository delivers the native Raspberry Pi signage player for CoreGeek Displays, aligned with the _CoreGeek Displays Server API Integration Guide_ (Section 8). The solution removes Docker dependencies in favour of a streamlined Node.js service managed directly by systemd and configured through a single installer script.
 
 ---
 

@@ -2,7 +2,7 @@
  * CoreGeek Displays Signage Player
  * Fetches public event feeds and renders them for Raspberry Pi kiosk displays
  * 
- * Architecture references:
+ * Architecture references (CoreGeek Displays Server API Integration Guide):
  * - Section 8.4: Event fetch and server implementation
  * - Section 8.5: Runtime configuration via environment variables
  * - Section 8.8: Caching, offline fallback, and health monitoring

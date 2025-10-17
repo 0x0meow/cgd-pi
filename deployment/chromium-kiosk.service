@@ -1,5 +1,5 @@
 # Chromium Kiosk Mode - systemd Service
-# Reference: docs/server-api-events.md section 8.7
+# Reference: CoreGeek Displays Server API Integration Guide – Section 8.7
 #
 # Installation:
 #   sudo cp deployment/chromium-kiosk.service /etc/systemd/system/
