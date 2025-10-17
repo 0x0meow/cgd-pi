@@ -24,6 +24,7 @@ const __dirname = dirname(__filename);
 const config = {
   port: parseInt(process.env.PORT || '3000', 10),
   controllerBaseUrl: process.env.CONTROLLER_BASE_URL || 'https://displays.example.com',
+  controllerApiKey: process.env.CONTROLLER_API_KEY || null,
   venueSlug: process.env.VENUE_SLUG || null,
   fetchIntervalS: parseInt(process.env.FETCH_INTERVAL_S || '60', 10),
   displayRotationS: parseInt(process.env.DISPLAY_ROTATION_S || '10', 10),
@@ -99,11 +100,17 @@ async function refreshEvents() {
 
     console.log(`  → Endpoint: ${endpoint}`);
 
+    const headers = {
+      'Accept': 'application/json',
+      'User-Agent': 'CoreGeek-Signage-Player/1.0',
+    };
+
+    if (config.controllerApiKey) {
+      headers['x-api-key'] = config.controllerApiKey;
+    }
+
     const res = await fetch(endpoint, {
-      headers: { 
-        'Accept': 'application/json',
-        'User-Agent': 'CoreGeek-Signage-Player/1.0'
-      },
+      headers,
       timeout: 10000, // 10 second timeout
     });
 
@@ -123,9 +130,17 @@ async function refreshEvents() {
     let venue = null;
     if (config.venueSlug) {
       try {
+        const venueHeaders = {
+          'Accept': 'application/json',
+        };
+
+        if (config.controllerApiKey) {
+          venueHeaders['x-api-key'] = config.controllerApiKey;
+        }
+
         const venueRes = await fetch(
           `${config.controllerBaseUrl}/api/public/venues/${config.venueSlug}`,
-          { headers: { 'Accept': 'application/json' }, timeout: 5000 }
+          { headers: venueHeaders, timeout: 5000 }
         );
         if (venueRes.ok) {
           venue = await venueRes.json();
@@ -208,7 +223,7 @@ app.get('/', (_req, res) => {
 
 /**
  * Health check endpoint (Section 8.8)
- * Used by Docker healthcheck and monitoring systems
+ * Used by platform health checks and monitoring systems
  */
 app.get('/healthz', (_req, res) => {
   const isHealthy = isCacheValid() || cachedDataset.events.length > 0;

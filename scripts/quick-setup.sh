@@ -20,6 +20,7 @@ SIGNAGE_DIR="/opt/signage"
 REPO_URL="https://github.com/0x0meow/cgd-pi.git"
 REQUIRED_PACKAGES="chromium-browser unclutter curl git"
 NODE_VERSION="20"
+CURRENT_NODE_VERSION=0
 
 # Colors for output
 RED='\033[0;31m'
@@ -62,6 +63,15 @@ update_env_var() {
     sed -i "s|^$key=.*|$key=$escaped_value|" "$file"
   else
     printf '%s=%s\n' "$key" "$value" >> "$file"
+  fi
+}
+
+get_env_var() {
+  local file="$1"
+  local key="$2"
+
+  if [ -f "$file" ]; then
+    grep -m1 "^$key=" "$file" | cut -d'=' -f2-
   fi
 }
 
@@ -129,23 +139,29 @@ fi
 # Clone Repository
 # ============================================================================
 
+BACKUP_ENV=""
+
 if [ -d "$SIGNAGE_DIR" ]; then
-  warn "Directory $SIGNAGE_DIR already exists"
-  read -p "Remove and re-clone? (y/N): " -n 1 -r
-  echo
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
-    rm -rf "$SIGNAGE_DIR"
-  else
-    log "Skipping repository clone"
-    cd "$SIGNAGE_DIR"
+  warn "Existing installation detected at $SIGNAGE_DIR"
+
+  if [ -f "$SIGNAGE_DIR/.env" ]; then
+    BACKUP_ENV="/tmp/signage-env-$(date +'%Y%m%d%H%M%S')"
+    cp "$SIGNAGE_DIR/.env" "$BACKUP_ENV"
+    log "Backed up current environment to $BACKUP_ENV"
   fi
+
+  log "Removing previous installation..."
+  rm -rf "$SIGNAGE_DIR"
 fi
 
-if [ ! -d "$SIGNAGE_DIR" ]; then
-  log "Cloning repository to $SIGNAGE_DIR..."
-  mkdir -p "$SIGNAGE_DIR"
-  git clone "$REPO_URL" "$SIGNAGE_DIR"
-  cd "$SIGNAGE_DIR"
+log "Cloning repository to $SIGNAGE_DIR..."
+mkdir -p "$SIGNAGE_DIR"
+git clone "$REPO_URL" "$SIGNAGE_DIR"
+cd "$SIGNAGE_DIR"
+
+if [ -n "$BACKUP_ENV" ] && [ -f "$BACKUP_ENV" ]; then
+  cp "$BACKUP_ENV" "$SIGNAGE_DIR/.env"
+  log "Restored environment from backup"
 fi
 
 # ============================================================================
@@ -156,33 +172,46 @@ log "Configuring environment..."
 
 if [ ! -f "$SIGNAGE_DIR/.env" ]; then
   cp "$SIGNAGE_DIR/.env.example" "$SIGNAGE_DIR/.env"
-  
-  echo
-  echo "===================================="
-  echo "Environment Configuration Required"
-  echo "===================================="
-  echo
-  
-  read -rp "Enter CoreGeek Displays API key (leave empty if not required): " CONTROLLER_API_KEY
-
-  while true; do
-    read -rp "Enter CoreGeek Displays controller URL (e.g., https://displays.example.com): " CONTROLLER_URL
-    if [ -n "$CONTROLLER_URL" ]; then
-      break
-    fi
-    warn "Controller URL is required. Please enter a valid URL."
-  done
-
-  read -rp "Enter venue slug (leave empty for all events): " VENUE_SLUG
-
-  update_env_var "$SIGNAGE_DIR/.env" "CONTROLLER_API_KEY" "$CONTROLLER_API_KEY"
-  update_env_var "$SIGNAGE_DIR/.env" "CONTROLLER_BASE_URL" "$CONTROLLER_URL"
-  update_env_var "$SIGNAGE_DIR/.env" "VENUE_SLUG" "$VENUE_SLUG"
-  
-  log "Environment configured"
-else
-  warn ".env file already exists - skipping configuration"
 fi
+
+CONFIG_FILE="$SIGNAGE_DIR/.env"
+
+CURRENT_URL=$(get_env_var "$CONFIG_FILE" "CONTROLLER_BASE_URL")
+if [ -z "$CURRENT_URL" ] || [ "$CURRENT_URL" = "https://displays.example.com" ]; then
+  if [ -n "${CONTROLLER_BASE_URL:-}" ]; then
+    update_env_var "$CONFIG_FILE" "CONTROLLER_BASE_URL" "$CONTROLLER_BASE_URL"
+  else
+    while true; do
+      read -rp "Enter CoreGeek Displays controller URL (e.g., https://displays.example.com): " CONTROLLER_URL
+      if [ -n "$CONTROLLER_URL" ]; then
+        update_env_var "$CONFIG_FILE" "CONTROLLER_BASE_URL" "$CONTROLLER_URL"
+        break
+      fi
+      warn "Controller URL is required. Please enter a valid URL."
+    done
+  fi
+else
+  log "Using existing controller URL: $CURRENT_URL"
+fi
+
+if [ -n "${VENUE_SLUG:-}" ]; then
+  update_env_var "$CONFIG_FILE" "VENUE_SLUG" "$VENUE_SLUG"
+fi
+
+CURRENT_API_KEY=$(get_env_var "$CONFIG_FILE" "CONTROLLER_API_KEY")
+if [ -z "$CURRENT_API_KEY" ]; then
+  if [ -n "${CONTROLLER_API_KEY:-}" ]; then
+    update_env_var "$CONFIG_FILE" "CONTROLLER_API_KEY" "$CONTROLLER_API_KEY"
+    log "Controller API key configured from environment variable"
+  else
+    log "Launching API key configuration CLI..."
+    node "$SIGNAGE_DIR/scripts/configure-api-key.js" --env "$CONFIG_FILE"
+  fi
+else
+  log "Controller API key already configured"
+fi
+
+log "Environment configured"
 
 # ============================================================================
 # Install Node.js Dependencies

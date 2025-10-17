@@ -96,40 +96,24 @@ if command -v vcgencmd &> /dev/null; then
 fi
 
 # ============================================================================
-# Docker Checks
+# Node.js & Application Checks
 # ============================================================================
 
-print_header "Docker Configuration"
+print_header "Node.js Runtime"
 
-# Docker installed
-if command -v docker &> /dev/null; then
-  DOCKER_VERSION=$(docker --version | cut -d' ' -f3 | tr -d ',')
-  test_pass "Docker installed: $DOCKER_VERSION"
+if command -v node &> /dev/null; then
+  NODE_VERSION=$(node -v)
+  test_pass "Node.js installed: $NODE_VERSION"
 else
-  test_fail "Docker not installed"
+  test_fail "Node.js not installed"
   exit 1
 fi
 
-# Docker running
-if systemctl is-active --quiet docker; then
-  test_pass "Docker service running"
+if command -v npm &> /dev/null; then
+  NPM_VERSION=$(npm -v)
+  test_pass "npm installed: $NPM_VERSION"
 else
-  test_fail "Docker service not running"
-fi
-
-# Docker compose
-if docker compose version &> /dev/null; then
-  COMPOSE_VERSION=$(docker compose version --short)
-  test_pass "Docker Compose plugin installed: $COMPOSE_VERSION"
-else
-  test_fail "Docker Compose plugin not installed"
-fi
-
-# User in docker group
-if groups $USER | grep -q docker; then
-  test_pass "User '$USER' in docker group"
-else
-  test_warn "User '$USER' not in docker group (may need sudo)"
+  test_fail "npm not installed"
 fi
 
 # ============================================================================
@@ -149,7 +133,7 @@ fi
 cd "$SIGNAGE_DIR"
 
 # Required files
-REQUIRED_FILES=("docker-compose.yml" "Dockerfile" "server.js" "package.json" ".env")
+REQUIRED_FILES=("server.js" "package.json" "deployment/signage.service" "deployment/chromium-kiosk.service")
 for file in "${REQUIRED_FILES[@]}"; do
   if [ -f "$file" ]; then
     test_pass "Required file present: $file"
@@ -182,29 +166,10 @@ else
   test_fail "Environment file not found (copy .env.example to .env)"
 fi
 
-# Docker image
-if docker images | grep -q coregeek-signage; then
-  IMAGE_ID=$(docker images coregeek-signage:latest --format "{{.ID}}")
-  IMAGE_SIZE=$(docker images coregeek-signage:latest --format "{{.Size}}")
-  test_pass "Docker image built: $IMAGE_ID ($IMAGE_SIZE)"
+if pgrep -f "node .*server\.js" > /dev/null 2>&1; then
+  test_pass "Signage Node.js process is running"
 else
-  test_fail "Docker image not built (run: docker buildx build --platform linux/arm64 -t coregeek-signage:latest .)"
-fi
-
-# Container running
-if docker compose ps | grep -q "Up"; then
-  test_pass "Container is running"
-  
-  # Container health
-  if docker compose ps | grep -q "healthy"; then
-    test_pass "Container is healthy"
-  elif docker compose ps | grep -q "unhealthy"; then
-    test_fail "Container is unhealthy (check logs: docker compose logs)"
-  else
-    test_warn "Container health unknown"
-  fi
-else
-  test_fail "Container not running (start: docker compose up -d)"
+  test_warn "Signage Node.js process not detected (service may be stopped)"
 fi
 
 # ============================================================================

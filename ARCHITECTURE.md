@@ -1,348 +1,151 @@
-# CoreGeek Displays - Architecture Diagrams
+# CoreGeek Displays - Architecture Overview
+
+This document visualises the native Raspberry Pi deployment used by the CoreGeek Displays signage player.
+
+---
 
 ## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Raspberry Pi 4/5 (ARM64)                     │
-│                      Raspberry Pi OS Lite                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  ┌────────────────────────────────────────────────────────┐    │
-│  │         Chromium Browser (Kiosk Mode)                  │    │
-│  │         systemd: chromium-kiosk.service                │    │
-│  │                                                         │    │
-│  │  • Full-screen mode (--kiosk --app)                    │    │
-│  │  • No browser chrome                                   │    │
-│  │  • Auto-restart on crash                               │    │
-│  │  • URL: http://localhost:3000                          │    │
-│  └──────────────────────┬─────────────────────────────────┘    │
-│                         │ HTTP GET                              │
-│                         ▼                                       │
-│  ┌────────────────────────────────────────────────────────┐    │
-│  │    Docker Container (coregeek-signage:latest)          │    │
-│  │    systemd: signage.service                            │    │
-│  │    Network: host mode (localhost:3000)                 │    │
-│  │                                                         │    │
-│  │  ┌─────────────────────────────────────────────────┐  │    │
-│  │  │   Node.js Express Server (server.js)            │  │    │
-│  │  │                                                  │  │    │
-│  │  │  Routes:                                         │  │    │
-│  │  │    GET /           → Render events.njk          │  │    │
-│  │  │    GET /healthz    → Health check               │  │    │
-│  │  │    GET /status     → Debug info                 │  │    │
-│  │  │                                                  │  │    │
-│  │  │  Background Tasks:                               │  │    │
-│  │  │    setInterval()   → Fetch events every 60s     │  │    │
-│  │  │                                                  │  │    │
-│  │  │  Caching:                                        │  │    │
-│  │  │    cachedDataset   → In-memory event storage    │  │    │
-│  │  │    Offline mode    → 24hr retention             │  │    │
-│  │  └─────────────────────────────────────────────────┘  │    │
-│  │                         │                              │    │
-│  │                         │ HTTPS (fetch)                │    │
-│  └─────────────────────────┼──────────────────────────────┘    │
-│                            │                                   │
-└────────────────────────────┼───────────────────────────────────┘
-                             │
-                             ▼ Internet
-              ┌──────────────────────────────┐
-              │  CoreGeek Displays Controller │
-              │   (displays.example.com)      │
-              │                               │
-              │  Public API Endpoints:        │
-              │   GET /api/public/events      │
-              │   GET /api/public/venues/:id  │
-              │   GET /uploads/*              │
-              └───────────────────────────────┘
+┌────────────────────────────────────────────────────────────┐
+│                    Raspberry Pi 4/5 (ARM64)                 │
+│                    Raspberry Pi OS (64-bit)                 │
+├────────────────────────────────────────────────────────────┤
+│                                                            │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │        Chromium Browser (Kiosk Mode)               │    │
+│  │        systemd: chromium-kiosk.service             │    │
+│  │                                                    │    │
+│  │  • Launches http://localhost:3000 in full screen   │    │
+│  │  • Auto-login + cursor hiding (unclutter)          │    │
+│  │  • Restarts automatically on crash                 │    │
+│  └───────────────┬────────────────────────────────────┘    │
+│                  │ HTTP GET                                │
+│                  ▼                                         │
+│  ┌────────────────────────────────────────────────────┐    │
+│  │  Node.js Express Service (server.js)               │    │
+│  │  systemd: signage.service                          │    │
+│  │                                                    │    │
+│  │  • Renders signage views with Nunjucks             │    │
+│  │  • Fetches controller events + metadata            │    │
+│  │  • Maintains in-memory cache + offline flag        │    │
+│  │  • Exposes /, /status, /healthz endpoints          │    │
+│  └───────────────┬────────────────────────────────────┘    │
+│                  │ HTTPS (node-fetch)                      │
+└──────────────────┼─────────────────────────────────────────┘
+                   │
+                   ▼
+        CoreGeek Displays Controller (HTTPS API)
 ```
+
+---
 
 ## Data Flow
 
 ```
-Controller      Network        Raspberry Pi                Display
-─────────       ────────       ────────────                ────────
-
-   [DB]
-    │
-    ├─→ Events API
-    │   /api/public/events
-    │             │
-    │             │ HTTPS GET
-    │             │ Every 60s
-    │             ▼
-    │         Docker Container
-    │         ┌──────────────┐
-    │         │ fetch()      │
-    │         │   ↓          │
-    │         │ Hydrate URLs │
-    │         │   ↓          │
-    │         │ Sort by date │
-    │         │   ↓          │
-    │         │ Cache data   │───────────┐
-    │         └──────────────┘           │
-    │                                    │ Offline
-    │                                    │ Resilience
-    ├─→ Media Files                     │ (24h cache)
-    │   /uploads/*.png ──────────────────┘
-    │             │
-    │             │ HTTP GET (from browser)
-    │             │
-    │             ▼
-    │         Chromium
-    │         ┌──────────────┐
-    │         │ localhost:3000│
-    │         │   ↓          │
-    │         │ Render HTML  │
-    │         │   ↓          │
-    │         │ Load CSS     │
-    │         │   ↓          │
-    │         │ Load Images  │
-    │         └──────────────┘
-    │                   │
-    │                   │ HDMI
-    │                   ▼
-    │             ┌────────────┐
-    │             │  Monitor   │
-    │             │  (1920x1080)│
-    └─────────────│  Digital   │
-                  │  Signage   │
-                  └────────────┘
+Controller API        Raspberry Pi                    Display
+──────────────        ────────────                    ───────
+GET /events ────────► Node fetch() ──┐
+                     hydrateMedia()  │  cachedDataset
+GET /venues/:slug ─► Node fetch() ───┤──→ offline fallback + timestamps
+                                      │
+Media /uploads/* ◄── Chromium ────────┘  (HTTP requests from kiosk)
+                                      │
+                                      ▼
+                               events.njk renders
+                                      │
+                                      ▼
+                               HDMI Monitor
 ```
+
+The server polls the controller at configurable intervals (default 60s). Successful responses refresh the cache and clear the offline flag; failures reuse cached content for up to 24 hours.
+
+---
 
 ## Boot Sequence
 
 ```
 Power On
-   │
-   ├─→ Raspberry Pi OS Boots
-   │     │
-   │     ├─→ Network Initialization
-   │     │     └─→ Wi-Fi/Ethernet connects
-   │     │
-   │     ├─→ Docker Service Starts (systemd)
-   │     │     └─→ Docker daemon running
-   │     │
-   │     ├─→ Signage Service Starts (systemd)
-   │     │     └─→ docker compose up -d
-   │     │           │
-   │     │           ├─→ Pull image (if updated)
-   │     │           ├─→ Start container
-   │     │           ├─→ Node.js server starts
-   │     │           ├─→ Initial event fetch
-   │     │           └─→ Health check passes ✓
-   │     │
-   │     ├─→ Graphical Desktop Loads (X11)
-   │     │     └─→ Auto-login as 'pi' user
-   │     │
-   │     └─→ Chromium Kiosk Starts (systemd)
-   │           │
-   │           ├─→ Disable screen saver (xset)
-   │           ├─→ Hide cursor (unclutter)
-   │           ├─→ Wait for localhost:3000/healthz
-   │           └─→ Launch Chromium in kiosk mode
-   │                 │
-   │                 └─→ Full-screen signage visible ✓
-   │
-   └─→ Ready (total time: ~60-90 seconds)
+  └─► Raspberry Pi OS initialises
+       ├─► Network comes online
+       ├─► systemd starts signage.service
+       │     ├─► Node.js installs dependencies (pre-deployed)
+       │     ├─► server.js executes
+       │     ├─► Immediate event fetch + scheduler
+       │     └─► /healthz available
+       ├─► systemd starts chromium-kiosk.service
+       │     ├─► Auto-login ensured
+       │     ├─► start-kiosk.sh waits for healthz
+       │     └─► Chromium launches in kiosk mode
+       └─► Signage visible (~60-90s total)
 ```
+
+---
 
 ## File Structure
 
 ```
-/opt/signage/                    # Deployment directory
-├── .env                         # Configuration (CONTROLLER_BASE_URL, etc.)
-├── docker-compose.yml           # Docker stack definition
-├── logs/                        # Container logs (optional)
-└── [other repo files]
+/opt/signage/                     # Managed by quick-setup.sh
+├── .env                          # Deployment configuration
+├── .env.example                  # Template
+├── deployment/
+│   ├── signage.service           # Node.js systemd unit
+│   └── chromium-kiosk.service    # Chromium kiosk unit
+├── public/                       # Static assets (CSS, fonts)
+├── scripts/
+│   ├── quick-setup.sh            # Installer / reinstaller
+│   ├── validate.sh               # Post-install checks
+│   └── configure-api-key.js      # CLI for controller API key
+├── views/                        # Nunjucks templates
+├── package.json                  # Node metadata
+└── server.js                     # Express application
 
-/home/pi/
-└── start-kiosk.sh              # Chromium startup script
-
+/home/pi/start-kiosk.sh           # Launches Chromium (copied by installer)
 /etc/systemd/system/
-├── signage.service             # Docker stack manager
-└── chromium-kiosk.service      # Chromium kiosk manager
-
-Container Internal:
-/app/
-├── server.js                   # Main application
-├── package.json                # Dependencies
-├── node_modules/               # Installed packages
-├── views/
-│   └── events.njk             # Event display template
-└── public/
-    └── signage.css            # Styling
+  ├── signage.service
+  └── chromium-kiosk.service
 ```
 
-## Environment Configuration Flow
+---
+
+## Configuration Flow
 
 ```
-.env.example (template)
-      │
-      ├─→ Copy to .env
-      │
-      ▼
-.env (deployment config)
-      │
-      ├─→ CONTROLLER_BASE_URL=https://displays.example.com
-      ├─→ VENUE_SLUG=coregeek-taproom
-      ├─→ FETCH_INTERVAL_S=60
-      ├─→ MAX_EVENTS_DISPLAY=6
-      └─→ OFFLINE_RETENTION_HOURS=24
-      │
-      ├─→ docker-compose.yml (env_file)
-      │
-      ▼
-Docker Container Environment Variables
-      │
-      ├─→ process.env.CONTROLLER_BASE_URL
-      ├─→ process.env.VENUE_SLUG
-      └─→ [etc.]
-      │
-      ▼
-server.js Configuration Object
-      │
-      └─→ Used by fetch logic, routes, etc.
+.env.example
+    │
+    └─► quick-setup.sh copies to .env (or restores backup)
+           │
+           ├─► Prompts for CONTROLLER_BASE_URL if missing
+           ├─► Invokes configure-api-key CLI when key empty
+           └─► Applies VENUE_SLUG / overrides from environment
+                │
+                ▼
+        server.js reads process.env.* at runtime
 ```
 
-## Network Flow
+The `scripts/configure-api-key.js` CLI can be invoked post-install to set, rotate, or clear the API key without editing the file manually.
 
-```
-Internet                 Raspberry Pi              Display
-────────                 ────────────              ───────
-
-┌─────────────┐
-│ Controller  │
-│ HTTPS API   │
-└──────┬──────┘
-       │
-       │ Port 443 (HTTPS)
-       │ Outbound only
-       │
-       ▼
-┌─────────────┐
-│ Pi Firewall │
-│ (optional)  │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────┐
-│ Docker      │         ┌──────────┐
-│ Container   │◄────────│ Chromium │
-│ Port 3000   │  HTTP   │ Browser  │
-└─────────────┘ localhost└─────┬────┘
-                               │
-                               │ HDMI
-                               │
-                               ▼
-                         ┌──────────┐
-                         │ Monitor  │
-                         └──────────┘
-
-Notes:
-• No inbound ports required
-• Controller must be publicly accessible via HTTPS
-• Container uses host networking (localhost:3000)
-• Chromium and container communicate on loopback
-```
-
-## State Machine
-
-```
-┌─────────────┐
-│   Initial   │
-│   (Empty)   │
-└──────┬──────┘
-       │
-       │ Server starts
-       │ Immediate fetch
-       ▼
-┌─────────────┐     Fetch Success     ┌─────────────┐
-│  Fetching   │────────────────────────▶│   Healthy   │
-└──────┬──────┘                         └──────┬──────┘
-       │                                       │
-       │ Fetch Failure                         │ Every FETCH_INTERVAL_S
-       │ (Network error)                       │ Fetch again
-       ▼                                       │
-┌─────────────┐                                │
-│   Offline   │◄───────────────────────────────┘
-│  (Cached)   │          Fetch Failure
-└──────┬──────┘          (Use cache)
-       │
-       │ Cache age < OFFLINE_RETENTION_HOURS
-       │ Display cached events
-       │
-       ├───────────────────────────────────────┐
-       │                                       │
-       │ Cache expires                         │ Network restored
-       ▼                                       ▼
-┌─────────────┐                         ┌─────────────┐
-│   Unhealthy │                         │   Healthy   │
-│  (No data)  │                         │  (Recovered)│
-└─────────────┘                         └─────────────┘
-       │                                       │
-       │ Network restored                      │
-       │ Successful fetch                      │
-       └───────────────────────────────────────┘
-```
+---
 
 ## Monitoring & Health
 
-```
-External Monitoring          Health Checks
-───────────────────          ─────────────
+- `GET /healthz` – returns HTTP 200 with cache + offline metadata when healthy, 503 otherwise.
+- `GET /status` – detailed JSON payload including uptime, memory usage, and cached events.
+- `systemctl status signage` – confirms Node.js service state and restarts automatically on failures.
+- `systemctl status chromium-kiosk` – monitors kiosk launcher.
 
-┌──────────────┐
-│ Admin/Staff  │
-└──────┬───────┘
-       │
-       │ Check display visually
-       │ Events updating?
-       │
-       ▼
-┌──────────────┐           ┌──────────────┐
-│   Display    │           │  Docker HC   │
-│   Screen     │           │  /healthz    │
-└──────────────┘           └──────┬───────┘
-                                  │
-                                  │ Every 30s
-                                  │
-                                  ▼
-                           ┌──────────────┐
-       SSH Access ────────▶│ systemd logs │
-       Troubleshoot        │  journalctl  │
-                           └──────┬───────┘
-                                  │
-                                  │ Log aggregation
-                                  │
-                                  ▼
-                           ┌──────────────┐
-                           │ Monitoring   │
-                           │ Dashboard    │
-                           │ (optional)   │
-                           └──────────────┘
-```
+These endpoints and services are designed to integrate with Pi-level monitoring or third-party supervisors.
 
 ---
 
-## Key Design Decisions
+## Update Strategy
 
-1. **Host Networking**: Simplifies localhost access from Chromium, avoids port mapping complexity in kiosk scenario
+1. Pull latest code: `git pull`
+2. Install dependencies: `npm install --production`
+3. Restart services: `sudo systemctl restart signage chromium-kiosk`
 
-2. **systemd Integration**: Ensures services start on boot and restart on failure; native to Raspberry Pi OS
-
-3. **In-Memory Cache**: Fast access, sufficient for signage use case; no database overhead
-
-4. **Chromium Kiosk**: Mature, widely supported; better rendering than lightweight browsers
-
-5. **Docker for App**: Isolation, easy updates, consistent environment across Pi devices
-
-6. **Static Asset Serving**: Express serves CSS/JS; simple architecture vs. separate web server
-
-7. **Periodic Fetch**: Pull model avoids webhook complexity; suitable for event update frequency
-
-8. **ARM64 Build**: Future-proof for Pi 5 and newer models; backward compatible with Pi 4
+Alternatively, rerun `quick-setup.sh` for a clean reinstall; the script backs up the existing `.env` before replacing the codebase.
 
 ---
 
-These diagrams are referenced in the main README.md and help visualize the architecture described in docs/server-api-events.md Section 8.
+This native architecture keeps deployments lightweight, resilient, and easy to manage on Raspberry Pi hardware without Docker.
