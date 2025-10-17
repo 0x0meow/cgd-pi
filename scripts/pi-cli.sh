@@ -84,6 +84,15 @@ Detected hardware/software profile:
 INFO
 }
 
+get_env_var() {
+  local file="$1"
+  local key="$2"
+
+  if [[ -f $file ]]; then
+    grep -E "^${key}=" "$file" | tail -n 1 | cut -d'=' -f2-
+  fi
+}
+
 ensure_packages() {
   require_root
   local missing=()
@@ -205,6 +214,137 @@ show_status() {
   done
 }
 
+run_diagnostics() {
+  local env_file="$SIGNAGE_DIR/.env"
+  local exit_code=0
+
+  print_detection
+  echo
+
+  if [[ ! -f $env_file ]]; then
+    error "Environment file not found at $env_file. Run the installer first."
+  fi
+
+  if ! command -v curl >/dev/null 2>&1; then
+    error "curl is required for diagnostics. Install dependencies first (install-deps)."
+  fi
+
+  if ! command -v node >/dev/null 2>&1; then
+    error "Node.js is required for diagnostics JSON parsing. Run install-deps to install Node.js."
+  fi
+
+  local controller_url controller_base controller_host venue_slug api_key
+  controller_url="$(get_env_var "$env_file" "CONTROLLER_BASE_URL")"
+  venue_slug="$(get_env_var "$env_file" "VENUE_SLUG")"
+  api_key="$(get_env_var "$env_file" "CONTROLLER_API_KEY")"
+
+  if [[ -z ${controller_url:-} ]]; then
+    error "CONTROLLER_BASE_URL is not configured in $env_file."
+  fi
+
+  controller_base="${controller_url%/}"
+  controller_host="${controller_base#*//}"
+  controller_host="${controller_host%%/*}"
+
+  log "Controller base URL: $controller_base"
+
+  if [[ -n ${controller_host:-} ]]; then
+    log "Pinging controller host ($controller_host)..."
+    if ping -c 1 -W 3 "$controller_host" >/dev/null 2>&1; then
+      log "  ✓ Controller host is reachable"
+    else
+      log "  ✗ Unable to reach $controller_host via ping"
+      exit_code=1
+    fi
+  fi
+
+  local endpoint
+  if [[ -n ${venue_slug:-} ]]; then
+    endpoint="$controller_base/api/public/venues/${venue_slug}/events"
+  else
+    endpoint="$controller_base/api/public/events"
+  fi
+
+  log "Requesting event feed: $endpoint"
+
+  local tmp_json
+  tmp_json="$(mktemp)"
+
+  local curl_cmd=(curl -fsS --max-time 20 -H "Accept: application/json")
+  if [[ -n ${api_key:-} ]]; then
+    curl_cmd+=(-H "x-api-key: $api_key")
+  fi
+  curl_cmd+=(-o "$tmp_json" "$endpoint")
+
+  if "${curl_cmd[@]}"; then
+    log "  ✓ Controller API responded successfully"
+  else
+    log "  ✗ Failed to download events from controller"
+    rm -f "$tmp_json"
+    return 1
+  fi
+
+  local diag_output event_count image_url
+  diag_output=$(node - "$tmp_json" "$controller_base" <<'NODE' || true)
+const fs = require('fs');
+
+const file = process.argv[1];
+const controllerBase = process.argv[2] || '';
+
+let data;
+try {
+  data = JSON.parse(fs.readFileSync(file, 'utf8'));
+} catch (err) {
+  console.error(err.message);
+  process.exit(1);
+}
+
+let events = [];
+if (Array.isArray(data)) {
+  events = data;
+} else if (data && Array.isArray(data.events)) {
+  events = data.events;
+}
+
+const firstWithImage = events.find((event) => event && typeof event.imageUrl === 'string' && event.imageUrl.trim().length > 0);
+
+let imageUrl = '';
+if (firstWithImage) {
+  imageUrl = firstWithImage.imageUrl.trim();
+  if (imageUrl.startsWith('/')) {
+    imageUrl = controllerBase.replace(/\/$/, '') + imageUrl;
+  }
+}
+
+console.log(events.length);
+console.log(imageUrl);
+NODE
+  )
+
+  event_count=$(printf '%s\n' "$diag_output" | sed -n '1p' | tr -d '\r')
+  image_url=$(printf '%s\n' "$diag_output" | sed -n '2p' | tr -d '\r')
+
+  if [[ -n ${event_count:-} ]]; then
+    log "  • Retrieved ${event_count:-0} events from controller"
+  fi
+
+  if [[ -n ${image_url:-} ]]; then
+    log "Checking image download: $image_url"
+    if curl -fsS --max-time 20 -o /dev/null "$image_url"; then
+      log "  ✓ Successfully downloaded sample event image"
+    else
+      log "  ✗ Unable to download event image: $image_url"
+      exit_code=1
+    fi
+  else
+    log "  ⚠ No events with images were returned in the feed"
+  fi
+
+  rm -f "$tmp_json"
+
+  return $exit_code
+}
+
 show_usage() {
   cat <<USAGE
 CoreGeek Displays Raspberry Pi CLI
@@ -217,6 +357,7 @@ Commands:
   reinstall     Remove any existing deployment and run a fresh install.
   uninstall     Stop services and remove all installed files.
   status        Show system information and service status.
+  diagnostics   Verify controller connectivity and media downloads.
   help          Show this help message.
 
 Examples:
@@ -249,6 +390,9 @@ main() {
       ;;
     status)
       show_status
+      ;;
+    diagnostics)
+      run_diagnostics
       ;;
     help|--help|-h)
       show_usage

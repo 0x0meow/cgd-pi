@@ -102,6 +102,7 @@ Key commands include:
 
 - `sudo /opt/signage/scripts/pi-cli.sh detect` – identify the Raspberry Pi model, OS, architecture, and kernel.
 - `sudo /opt/signage/scripts/pi-cli.sh install-deps` – verify/install the kiosk package dependencies and Node.js 20+.
+- `sudo /opt/signage/scripts/pi-cli.sh diagnostics` – verify controller connectivity and confirm media assets can be downloaded.
 - `sudo /opt/signage/scripts/pi-cli.sh reinstall` – remove any existing deployment and run the interactive quick setup again.
 - `sudo /opt/signage/scripts/pi-cli.sh uninstall` – stop services and remove signage files from the device.
 
