@@ -80,12 +80,26 @@ curl -fsSL https://raw.githubusercontent.com/0x0meow/cgd-pi/main/scripts/quick-s
 
 The script will:
 - Update system packages
-- Install Node.js 20+ and required dependencies
-- Clone this repository to `/opt/signage`
-- Prompt for API key and controller URL
+- Install Chromium, git, curl, unclutter, and Node.js 20+
+- Remove any previous `/opt/signage` install (backing up `.env`) and clone the latest code
+- Restore configuration and prompt for controller URL if still default
+- Launch the API key CLI when the key is missing
 - Install npm dependencies
-- Configure systemd services
-- Set up Chromium kiosk mode
+- Configure systemd services and Chromium kiosk mode
+- Start the signage service and offer to reboot
+
+Re-running the script always produces a fresh installation while restoring the backed-up `.env` file.
+
+### Configure or Rotate the API Key
+
+The installer uses an internal CLI to capture the controller API key. Run it any time:
+
+```bash
+cd /opt/signage
+npm run configure-api-key
+```
+
+Provide `-- --key sk_live_123` to supply the key non-interactively, or use `--env`/`--signage-dir` to target another installation.
 
 **After the script completes, reboot your Pi:**
 
@@ -177,6 +191,7 @@ Create `/opt/signage/.env` with your CoreGeek Displays controller settings:
 ```bash
 # CoreGeek Displays Controller
 CONTROLLER_BASE_URL=https://displays.example.com
+CONTROLLER_API_KEY=
 
 # Venue Configuration
 # Leave empty to display all public events, or specify a venue slug
@@ -194,6 +209,8 @@ OFFLINE_RETENTION_HOURS=24   # Cache events for 24 hours when offline
 PORT=3000                    # Internal port (accessed via localhost)
 NODE_ENV=production
 ```
+
+Use `npm run configure-api-key` to set or rotate the `CONTROLLER_API_KEY` without editing the file manually.
 
 **Reference**: [docs/server-api-events.md Section 8.5](#)
 
