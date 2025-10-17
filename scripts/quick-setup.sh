@@ -19,6 +19,7 @@ set -euo pipefail
 SIGNAGE_DIR="/opt/signage"
 REPO_URL="https://github.com/0x0meow/cgd-pi.git"
 REQUIRED_PACKAGES="chromium-browser unclutter curl git"
+DOCKER_IMAGE="coregeek-signage:latest"
 
 # Colors for output
 RED='\033[0;31m'
@@ -46,6 +47,21 @@ error() {
 check_root() {
   if [ "$EUID" -ne 0 ]; then
     error "Please run as root (use sudo)"
+  fi
+}
+
+update_env_var() {
+  local file="$1"
+  local key="$2"
+  local value="${3:-}"
+  local escaped_value
+
+  escaped_value=$(printf '%s' "$value" | sed -e 's/[\/&|]/\\&/g')
+
+  if grep -q "^$key=" "$file"; then
+    sed -i "s|^$key=.*|$key=$escaped_value|" "$file"
+  else
+    printf '%s=%s\n' "$key" "$value" >> "$file"
   fi
 }
 
@@ -148,14 +164,21 @@ if [ ! -f "$SIGNAGE_DIR/.env" ]; then
   echo "===================================="
   echo
   
-  read -p "Enter CoreGeek Displays controller URL (e.g., https://displays.example.com): " CONTROLLER_URL
-  read -p "Enter venue slug (leave empty for all events): " VENUE_SLUG
-  
-  # Update .env file
-  sed -i "s|CONTROLLER_BASE_URL=.*|CONTROLLER_BASE_URL=$CONTROLLER_URL|" "$SIGNAGE_DIR/.env"
-  if [ -n "$VENUE_SLUG" ]; then
-    sed -i "s|VENUE_SLUG=.*|VENUE_SLUG=$VENUE_SLUG|" "$SIGNAGE_DIR/.env"
-  fi
+  read -rp "Enter CoreGeek Displays API key (leave empty if not required): " CONTROLLER_API_KEY
+
+  while true; do
+    read -rp "Enter CoreGeek Displays controller URL (e.g., https://displays.example.com): " CONTROLLER_URL
+    if [ -n "$CONTROLLER_URL" ]; then
+      break
+    fi
+    warn "Controller URL is required. Please enter a valid URL."
+  done
+
+  read -rp "Enter venue slug (leave empty for all events): " VENUE_SLUG
+
+  update_env_var "$SIGNAGE_DIR/.env" "CONTROLLER_API_KEY" "$CONTROLLER_API_KEY"
+  update_env_var "$SIGNAGE_DIR/.env" "CONTROLLER_BASE_URL" "$CONTROLLER_URL"
+  update_env_var "$SIGNAGE_DIR/.env" "VENUE_SLUG" "$VENUE_SLUG"
   
   log "Environment configured"
 else
@@ -166,9 +189,20 @@ fi
 # Build Docker Image
 # ============================================================================
 
-log "Building Docker image for ARM64..."
+log "Preparing Docker image ($DOCKER_IMAGE)..."
 cd "$SIGNAGE_DIR"
-docker buildx build --platform linux/arm64 -t coregeek-signage:latest .
+
+if docker image inspect "$DOCKER_IMAGE" > /dev/null 2>&1; then
+  warn "Docker image $DOCKER_IMAGE already exists locally - skipping rebuild (remove it to force a rebuild)"
+else
+  if docker buildx version > /dev/null 2>&1; then
+    docker buildx build --platform linux/arm64 -t "$DOCKER_IMAGE" --load .
+  else
+    warn "docker buildx not available; falling back to docker build"
+    docker build -t "$DOCKER_IMAGE" .
+  fi
+  log "Docker image $DOCKER_IMAGE built successfully"
+fi
 
 # ============================================================================
 # Install Systemd Services
