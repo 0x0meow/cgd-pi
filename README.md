@@ -2,7 +2,7 @@
 
 **Production-ready digital signage player for Raspberry Pi 4/5** that consumes CoreGeek Displays public event feeds and displays them in Chromium kiosk mode.
 
-> 📖 **Documentation Reference**: This implementation follows the architecture described in [docs/server-api-events.md](../coregeek-displays/docs/server-api-events.md) **Section 8: Option 1 – Raspberry Pi Kiosk Integration**.
+> 📖 **Documentation Reference**: This implementation follows the architecture described in the _CoreGeek Displays Server API Integration Guide_ (**Section 8: Option 1 – Raspberry Pi Kiosk Integration**).
 
 ---
 
@@ -68,7 +68,7 @@ Use [Raspberry Pi Imager](https://www.raspberrypi.com/software/) to flash **Rasp
 - Enable SSH for remote management
 - Set strong password for `pi` user
 
-**Reference**: [docs/server-api-events.md Section 8.2](#)
+**Reference**: CoreGeek Displays Server API Integration Guide – Section 8.2
 
 ### 2. Automated Setup (Recommended)
 
@@ -152,7 +152,7 @@ sudo apt install -y nodejs
 sudo reboot
 ```
 
-**Reference**: [docs/server-api-events.md Section 8.2, 8.3](#)
+**Reference**: CoreGeek Displays Server API Integration Guide – Sections 8.2 & 8.3
 
 ### 4. Deploy Signage Player
 
@@ -185,7 +185,7 @@ curl http://localhost:3000/healthz
 sudo /opt/signage/scripts/pi-cli.sh diagnostics
 ```
 
-**Reference**: [docs/server-api-events.md Section 8.4, 8.5, 8.6](#)
+**Reference**: CoreGeek Displays Server API Integration Guide – Sections 8.4, 8.5 & 8.6
 
 ### 5. Install Chromium Kiosk
 
@@ -204,7 +204,7 @@ sudo raspi-config nonint do_boot_behaviour B4  # Desktop auto-login
 sudo reboot
 ```
 
-**Reference**: [docs/server-api-events.md Section 8.6, 8.7](#)
+**Reference**: CoreGeek Displays Server API Integration Guide – Sections 8.6 & 8.7
 
 ---
 
@@ -240,7 +240,7 @@ NODE_ENV=production
 
 Use `npm run configure-api-key` to set or rotate the `CONTROLLER_API_KEY` without editing the file manually.
 
-**Reference**: [docs/server-api-events.md Section 8.5](#)
+**Reference**: CoreGeek Displays Server API Integration Guide – Section 8.5
 
 ### Venue Modes
 
@@ -314,7 +314,7 @@ sudo systemctl restart signage
 sudo systemctl restart chromium-kiosk
 ```
 
-**Reference**: [docs/server-api-events.md Section 8.8](#)
+**Reference**: CoreGeek Displays Server API Integration Guide – Section 8.8
 
 ---
 
@@ -414,7 +414,7 @@ sudo npm install --production
 sudo systemctl restart signage
 ```
 
-**Reference**: [docs/server-api-events.md Section 8.8](#)
+**Reference**: CoreGeek Displays Server API Integration Guide – Section 8.8
 
 ---
 
@@ -449,7 +449,7 @@ sudo systemctl restart signage
 - Keep CoreGeek Displays controller updated for latest API features
 - Regularly update system packages: `sudo apt update && sudo apt upgrade`
 
-**Reference**: [docs/server-api-events.md Section 8.8](#)
+**Reference**: CoreGeek Displays Server API Integration Guide – Section 8.8
 
 ---
 
@@ -474,7 +474,7 @@ The server automatically:
 4. Caches data for offline resilience
 5. Renders HTML with Nunjucks templates
 
-**Reference**: [docs/server-api-events.md Section 2, 4, 5](#)
+**Reference**: CoreGeek Displays Server API Integration Guide – Sections 2, 4 & 5
 
 ### Offline Behavior
 
@@ -485,7 +485,7 @@ When the controller is unreachable:
 - Display continues showing cached events
 - Health endpoint returns 503 after cache expires
 
-**Reference**: [docs/server-api-events.md Section 8.8](#)
+**Reference**: CoreGeek Displays Server API Integration Guide – Section 8.8
 
 ---
 
@@ -550,7 +550,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Support
 
-- **Documentation**: [docs/server-api-events.md](../coregeek-displays/docs/server-api-events.md)
+- **Documentation**: CoreGeek Displays Server API Integration Guide (internal reference)
 - **Issues**: [GitHub Issues](https://github.com/0x0meow/cgd-pi/issues)
 - **Controller Setup**: [CoreGeek Displays Documentation](https://github.com/coregeek/displays)
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # CoreGeek Signage - Chromium Kiosk Startup Script
-# Reference: docs/server-api-events.md section 8.7
+# Reference: CoreGeek Displays Server API Integration Guide – Section 8.7
 #
 # This script configures the X11 display and launches Chromium in kiosk mode
 # pointing at the local signage service (http://localhost:3000)
