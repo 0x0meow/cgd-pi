@@ -30,6 +30,7 @@ This repository delivers the native Raspberry Pi signage player for CoreGeek Dis
 
 ### server.js
 - Express server serving `/`, `/healthz`, `/status`
+- Validates environment configuration (controller URL, intervals) and fails fast on misconfiguration
 - Periodic controller fetch with configurable interval
 - Media URL hydration and chronological sorting
 - In-memory cache with offline retention window
@@ -47,6 +48,7 @@ This repository delivers the native Raspberry Pi signage player for CoreGeek Dis
   - Removes existing `/opt/signage` installation (with `.env` backup) before cloning latest code
   - Restores configuration, prompts for controller URL, and triggers the API Key CLI if needed
   - Installs npm dependencies and systemd services, enables auto-login, starts services, and offers reboot
+  - Executes the diagnostics suite post-install and aborts on failures so controller connectivity is guaranteed before handoff
 - `scripts/configure-api-key.js`
   - Node CLI to create/update `.env`
   - Accepts `--key`, `--env`, and `--signage-dir` arguments for automation

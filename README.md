@@ -87,8 +87,12 @@ The script will:
 - Install npm dependencies
 - Configure systemd services and Chromium kiosk mode
 - Start the signage service and offer to reboot
+- Run full diagnostics to verify controller connectivity, signage health, and kiosk readiness
 
 Re-running the script always produces a fresh installation while restoring the backed-up `.env` file.
+
+> ℹ️ **Diagnostics enforcement** – If any controller connectivity or service checks fail, the installer stops and highlights the
+> exact issue so you can correct it before placing the display into production.
 
 ### Remote Management CLI
 
@@ -118,6 +122,7 @@ npm run configure-api-key
 ```
 
 Provide `-- --key sk_live_123` to supply the key non-interactively, or use `--env`/`--signage-dir` to target another installation.
+Leaving the key blank keeps the player on public endpoints.
 
 **After the script completes, reboot your Pi:**
 
@@ -137,7 +142,7 @@ sudo apt update && sudo apt full-upgrade -y
 sudo raspi-config nonint do_change_timezone America/Chicago
 
 # Install required packages
-sudo apt install -y git curl chromium-browser unclutter
+sudo apt install -y git curl chromium-browser unclutter xserver-xorg x11-xserver-utils xinit dnsutils
 
 # Install Node.js 20
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
@@ -175,6 +180,9 @@ sudo systemctl start signage.service
 # Verify it's running
 sudo systemctl status signage
 curl http://localhost:3000/healthz
+
+# Run diagnostics to confirm connectivity and kiosk readiness
+sudo /opt/signage/scripts/pi-cli.sh diagnostics
 ```
 
 **Reference**: [docs/server-api-events.md Section 8.4, 8.5, 8.6](#)
@@ -227,6 +235,8 @@ OFFLINE_RETENTION_HOURS=24   # Cache events for 24 hours when offline
 PORT=3000                    # Internal port (accessed via localhost)
 NODE_ENV=production
 ```
+
+> ⚠️ **Controller URL required** – The signage service validates `CONTROLLER_BASE_URL` at startup and will exit if the placeholder `https://displays.example.com` value is still present.
 
 Use `npm run configure-api-key` to set or rotate the `CONTROLLER_API_KEY` without editing the file manually.
 

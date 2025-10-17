@@ -64,8 +64,11 @@ curl -fsSL https://raw.githubusercontent.com/0x0meow/cgd-pi/main/scripts/quick-s
 8. Installs & enables systemd services (signage + Chromium kiosk)
 9. Configures auto-login for kiosk mode
 10. Starts the signage service and offers to reboot
+11. Runs end-to-end diagnostics to confirm controller connectivity and kiosk readiness
 
 Re-running the script always results in a clean reinstall while preserving configuration backups.
+
+> ℹ️ The installer aborts if diagnostics fail, ensuring every Pi leaves setup with a verified connection to the controller.
 
 ---
 

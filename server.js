@@ -32,6 +32,57 @@ const config = {
   offlineRetentionHours: parseInt(process.env.OFFLINE_RETENTION_HOURS || '24', 10),
 };
 
+function sanitizeUrlTrailingSlash(urlString) {
+  return urlString.replace(/\/+$/, '');
+}
+
+function coerceInteger(value, fallback, label, minimum = 1) {
+  const numeric = Number.isFinite(value) ? Math.floor(value) : Number.NaN;
+
+  if (!Number.isFinite(numeric) || numeric < minimum) {
+    console.warn(`⚠ Invalid ${label} value '${value}'. Falling back to ${fallback}.`);
+    return fallback;
+  }
+
+  return numeric;
+}
+
+function validateConfiguration() {
+  const rawBaseUrl = (config.controllerBaseUrl || '').trim();
+
+  if (!rawBaseUrl || rawBaseUrl === 'https://displays.example.com') {
+    console.error('✗ CONTROLLER_BASE_URL must be configured. Update /opt/signage/.env or set the environment variable.');
+    process.exit(1);
+  }
+
+  let parsedBaseUrl;
+  try {
+    parsedBaseUrl = new URL(rawBaseUrl);
+  } catch (err) {
+    console.error(`✗ CONTROLLER_BASE_URL is invalid: ${err.message}`);
+    process.exit(1);
+  }
+
+  if (!['http:', 'https:'].includes(parsedBaseUrl.protocol)) {
+    console.error('✗ CONTROLLER_BASE_URL must use http or https.');
+    process.exit(1);
+  }
+
+  config.controllerBaseUrl = sanitizeUrlTrailingSlash(parsedBaseUrl.toString());
+  if (typeof config.controllerApiKey === 'string') {
+    const trimmedKey = config.controllerApiKey.trim();
+    config.controllerApiKey = trimmedKey.length > 0 ? trimmedKey : null;
+  }
+
+  config.fetchIntervalS = coerceInteger(config.fetchIntervalS, 60, 'FETCH_INTERVAL_S', 15);
+  config.displayRotationS = coerceInteger(config.displayRotationS, 10, 'DISPLAY_ROTATION_S', 5);
+  config.maxEventsDisplay = coerceInteger(config.maxEventsDisplay, 6, 'MAX_EVENTS_DISPLAY', 1);
+  config.offlineRetentionHours = coerceInteger(config.offlineRetentionHours, 24, 'OFFLINE_RETENTION_HOURS', 1);
+  config.port = coerceInteger(config.port, 3000, 'PORT', 1);
+}
+
+validateConfiguration();
+
 // ============================================================================
 // Data Cache & State Management (Section 8.8)
 // ============================================================================
@@ -270,6 +321,7 @@ setInterval(refreshEvents, refreshIntervalMs);
 
 console.log(`\n🚀 CoreGeek Signage Player Configuration:`);
 console.log(`   Controller: ${config.controllerBaseUrl}`);
+console.log(`   API Key: ${config.controllerApiKey ? 'provided' : 'not set (public endpoints)'}`);
 console.log(`   Venue: ${config.venueSlug || '(all public events)'}`);
 console.log(`   Fetch Interval: ${config.fetchIntervalS}s`);
 console.log(`   Display Rotation: ${config.displayRotationS}s`);

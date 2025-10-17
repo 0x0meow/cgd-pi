@@ -49,6 +49,9 @@ The script will automatically:
 - ✅ Install all dependencies
 - ✅ Set up automatic startup
 - ✅ Configure kiosk mode
+- ✅ Run diagnostics to verify controller connectivity and kiosk readiness
+
+If diagnostics find an issue (for example, unreachable controller or missing services), the installer stops so you can resolve it before rebooting.
 
 ### Step 3: Configure Your API Settings
 
@@ -57,6 +60,8 @@ When prompted by the setup script, enter:
 1. **API Key** (optional - leave empty if not required)
 2. **Controller URL** (e.g., `https://displays.example.com`)
 3. **Venue Slug** (optional - leave empty to show all events)
+
+> ⚠️ The signage service refuses to run with the sample controller URL, so be sure to enter your production endpoint during setup.
 
 ### Step 4: Reboot
 
@@ -89,6 +94,7 @@ After rebooting, your display will automatically show the signage!
 - Sets up systemd service for the signage player
 - Configures Chromium kiosk mode
 - Enables automatic startup on boot
+- Runs post-install diagnostics and halts if connectivity or service checks fail
 
 ---
 
@@ -135,6 +141,12 @@ cd /opt/signage
 sudo git pull
 sudo npm install --production
 sudo systemctl restart signage chromium-kiosk
+```
+
+### Run Diagnostics
+
+```bash
+sudo /opt/signage/scripts/pi-cli.sh diagnostics
 ```
 
 ---

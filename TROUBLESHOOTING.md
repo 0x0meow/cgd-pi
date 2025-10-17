@@ -223,6 +223,12 @@ sudo netstat -tulpn | grep 3000
 
 ## Network & Connectivity
 
+Start with the automated diagnostics to capture a full report in one command:
+
+```bash
+sudo /opt/signage/scripts/pi-cli.sh diagnostics
+```
+
 ### "Events Temporarily Unavailable" Message
 
 **Symptoms**: Display shows fallback message instead of events.
