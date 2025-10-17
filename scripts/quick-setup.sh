@@ -4,7 +4,7 @@
 # This script automates the initial deployment on a fresh Raspberry Pi
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/coregeek/cgd-pi/main/scripts/quick-setup.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/0x0meow/cgd-pi/main/scripts/quick-setup.sh | bash
 #
 # Or locally:
 #   chmod +x scripts/quick-setup.sh
@@ -17,7 +17,7 @@ set -euo pipefail
 # ============================================================================
 
 SIGNAGE_DIR="/opt/signage"
-REPO_URL="https://github.com/coregeek/cgd-pi.git"
+REPO_URL="https://github.com/0x0meow/cgd-pi.git"
 REQUIRED_PACKAGES="chromium-browser unclutter curl git"
 
 # Colors for output

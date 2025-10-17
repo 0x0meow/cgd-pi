@@ -108,10 +108,10 @@ sudo mkdir -p /opt/signage
 cd /opt/signage
 
 # Clone this repository
-git clone https://github.com/coregeek/cgd-pi.git .
+git clone https://github.com/0x0meow/cgd-pi.git .
 
 # OR download release tarball
-# wget https://github.com/coregeek/cgd-pi/releases/latest/download/cgd-pi.tar.gz
+# wget https://github.com/0x0meow/cgd-pi/releases/latest/download/cgd-pi.tar.gz
 # tar xzf cgd-pi.tar.gz
 
 # Configure environment (see Configuration section below)
@@ -500,7 +500,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Support
 
 - **Documentation**: [docs/server-api-events.md](../coregeek-displays/docs/server-api-events.md)
-- **Issues**: [GitHub Issues](https://github.com/coregeek/cgd-pi/issues)
+- **Issues**: [GitHub Issues](https://github.com/0x0meow/cgd-pi/issues)
 - **Controller Setup**: [CoreGeek Displays Documentation](https://github.com/coregeek/displays)
 
 ---

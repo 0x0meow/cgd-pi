@@ -522,7 +522,7 @@ If none of these solutions resolve your issue:
    } > ~/signage-diagnostics.txt
    ```
 
-2. **Open GitHub issue**: [github.com/coregeek/cgd-pi/issues](https://github.com/coregeek/cgd-pi/issues)
+2. **Open GitHub issue**: [github.com/0x0meow/cgd-pi/issues](https://github.com/0x0meow/cgd-pi/issues)
 3. **Include**: Diagnostics file, description of issue, steps to reproduce
 4. **Reference**: [docs/server-api-events.md](../coregeek-displays/docs/server-api-events.md) Section 8.8
 

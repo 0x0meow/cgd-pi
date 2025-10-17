@@ -69,7 +69,7 @@ This repository contains the **complete, production-ready implementation** of th
 
 ```bash
 # On a fresh Raspberry Pi OS (64-bit) installation:
-curl -fsSL https://raw.githubusercontent.com/coregeek/cgd-pi/main/scripts/quick-setup.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/0x0meow/cgd-pi/main/scripts/quick-setup.sh | sudo bash
 ```
 
 **Time to deploy**: ~5 minutes  
@@ -281,7 +281,7 @@ Common issues and solutions in **[TROUBLESHOOTING.md](TROUBLESHOOTING.md)**:
 ## 📞 Support
 
 - **Documentation**: This repository + referenced docs
-- **Issues**: [GitHub Issues](https://github.com/coregeek/cgd-pi/issues)
+- **Issues**: [GitHub Issues](https://github.com/0x0meow/cgd-pi/issues)
 - **Reference**: CoreGeek Displays `docs/server-api-events.md` Section 8
 - **Validation**: Run `./scripts/validate.sh` for diagnostics
 

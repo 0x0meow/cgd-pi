@@ -218,7 +218,7 @@ Key fields processed:
 
 ```bash
 # On fresh Raspberry Pi OS (64-bit):
-curl -fsSL https://raw.githubusercontent.com/coregeek/cgd-pi/main/scripts/quick-setup.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/0x0meow/cgd-pi/main/scripts/quick-setup.sh | sudo bash
 ```
 
 ### Manual Deployment (15-20 minutes)
