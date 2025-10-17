@@ -42,6 +42,7 @@ PI_USER="${PI_USER:-pi}"
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
 # ============================================================================
@@ -59,6 +60,81 @@ warn() {
 error() {
   echo -e "${RED}[$(date +'%Y-%m-%d %H:%M:%S')] ERROR:${NC} $1"
   exit 1
+}
+
+prompt_for_confirmation() {
+  local prompt_message="$1"
+  local default_choice="${2:-y}"
+  local response
+
+  if [ "$INTERACTIVE_AVAILABLE" != true ]; then
+    if [ "${default_choice,,}" = "y" ]; then
+      return 0
+    fi
+    return 1
+  fi
+
+  while true; do
+    local hint
+    if [ "${default_choice,,}" = "y" ]; then
+      hint="Y/n"
+    else
+      hint="y/N"
+    fi
+
+    printf "%s [%s]: " "$prompt_message" "$hint" >&$TTY_OUTPUT_FD
+    if ! read -u $TTY_INPUT_FD -r response; then
+      warn "Unable to read input. Please try again."
+      continue
+    fi
+
+    response="$(printf '%s' "${response:-}" | xargs | tr '[:upper:]' '[:lower:]')"
+
+    case "${response:-$default_choice}" in
+      y|yes)
+        return 0
+        ;;
+      n|no)
+        return 1
+        ;;
+      *)
+        warn "Please respond with 'y' or 'n'."
+        ;;
+    esac
+  done
+}
+
+show_welcome() {
+  echo
+  echo -e "${CYAN}==============================================${NC}"
+  echo -e "${CYAN} CoreGeek Displays Signage Player Quick Setup ${NC}"
+  echo -e "${CYAN}==============================================${NC}"
+  echo
+  echo "This guided installer will take care of:" \
+    "\n  • Updating Raspberry Pi OS packages" \
+    "\n  • Installing Chromium, Node.js, and other requirements" \
+    "\n  • Cloning the signage player to $SIGNAGE_DIR" \
+    "\n  • Setting up configuration, kiosk mode, and services" \
+    "\n  • Running diagnostics to confirm everything is ready"
+  echo
+
+  if ! prompt_for_confirmation "Ready to continue with the automated setup?" "y"; then
+    log "Setup cancelled by user. No changes were made."
+    exit 0
+  fi
+}
+
+check_network_connectivity() {
+  local test_targets=("https://github.com" "https://deb.nodesource.com")
+
+  for target in "${test_targets[@]}"; do
+    if curl -fsIL --max-time 5 "$target" > /dev/null 2>&1; then
+      log "Internet connectivity check passed (${target})"
+      return
+    fi
+  done
+
+  error "Unable to confirm internet connectivity. Check your network connection and try again."
 }
 
 check_root() {
@@ -352,6 +428,8 @@ validate_controller_url() {
 # Pre-flight Checks
 # ============================================================================
 
+show_welcome
+
 log "CoreGeek Displays Signage Player - Quick Setup"
 log "================================================"
 
@@ -383,6 +461,8 @@ fi
 # ============================================================================
 # System Updates
 # ============================================================================
+
+check_network_connectivity
 
 log "Updating system packages..."
 export DEBIAN_FRONTEND=noninteractive
@@ -426,6 +506,15 @@ BACKUP_ENV=""
 
 if [ -d "$SIGNAGE_DIR" ]; then
   warn "Existing installation detected at $SIGNAGE_DIR"
+
+  if [ "$INTERACTIVE_AVAILABLE" = true ]; then
+    if ! prompt_for_confirmation "Replace the existing installation with a fresh copy?" "y"; then
+      log "Setup cancelled. Existing installation left untouched."
+      exit 0
+    fi
+  else
+    warn "Proceeding with replacement in non-interactive mode."
+  fi
 
   if [ -f "$SIGNAGE_DIR/.env" ]; then
     BACKUP_ENV="/tmp/signage-env-$(date +'%Y%m%d%H%M%S')"
@@ -519,6 +608,20 @@ else
 fi
 
 chown "$PI_USER:$PI_USER" "$CONFIG_FILE"
+
+FINAL_CONTROLLER_URL=$(get_env_var "$CONFIG_FILE" "CONTROLLER_BASE_URL")
+FINAL_VENUE_SLUG=$(get_env_var "$CONFIG_FILE" "VENUE_SLUG")
+FINAL_API_KEY=$(get_env_var "$CONFIG_FILE" "CONTROLLER_API_KEY")
+
+echo
+echo -e "${CYAN}Configuration summary${NC}"
+echo "  Controller URL : ${FINAL_CONTROLLER_URL:-<not set>}"
+echo "  Venue slug     : ${FINAL_VENUE_SLUG:-<not set>}"
+if [ -n "$FINAL_API_KEY" ]; then
+  echo "  API key        : <saved>"
+else
+  echo "  API key        : <blank>"
+fi
 
 log "Environment configured"
 
