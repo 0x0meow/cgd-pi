@@ -50,8 +50,12 @@ The script will automatically:
 - ✅ Set up automatic startup
 - ✅ Configure kiosk mode
 - ✅ Run diagnostics to verify controller connectivity and kiosk readiness
+- ✅ Confirm before replacing an existing installation
+- ✅ Show a summary of the settings it saves so you can double-check them
 
 If diagnostics find an issue (for example, unreachable controller or missing services), the installer stops so you can resolve it before rebooting.
+
+> 💡 When the script starts you'll see a short overview of what it is about to do and you'll be asked to confirm before it begins making changes. Have your network connection ready—the script now checks for internet access up front so you know immediately if something needs attention.
 
 ### Step 3: Configure Your API Settings
 
